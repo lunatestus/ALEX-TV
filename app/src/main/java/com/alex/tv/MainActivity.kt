@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
             webViewClient = WebViewClient()
             webChromeClient = WebChromeClient()
 
-            // Transparent background to match the dark UI
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
             setBackgroundColor(0xFF000000.toInt())
         }
 
