@@ -6,12 +6,12 @@ A sleek Android TV app for browsing movies and TV shows, powered by TMDB.
 
 ## Features
 
-- 🎬 Browse Trending, Popular, Top Rated, Now Playing, and Upcoming movies
-- 📺 Popular and Latest TV series
-- 🖼️ Full-screen hero backdrop that updates as you navigate
-- 🎮 D-pad spatial navigation optimized for Android TV remotes
-- ⚡ Skeleton loading animations
-- 🌙 Dark, minimal UI built with Space Grotesk
+- Browse Trending, Popular, Top Rated, Now Playing, and Upcoming movies
+- Popular and Latest TV series
+- Full-screen hero backdrop that updates as you navigate
+- D-pad spatial navigation optimized for Android TV remotes
+- Skeleton loading animations
+- Dark, minimal UI built with Space Grotesk
 
 ## Download
 
