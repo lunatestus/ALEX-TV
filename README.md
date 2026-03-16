@@ -2,6 +2,8 @@
 
 A sleek Android TV app for browsing movies and TV shows, powered by TMDB.
 
+![ALEX TV Screenshot](screenshots/home.png)
+
 ## Features
 
 - 🎬 Browse Trending, Popular, Top Rated, Now Playing, and Upcoming movies
