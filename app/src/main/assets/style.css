@@ -8,11 +8,11 @@
   --text: #fff;
   --text-dim: #888;
   --focus-ring: #fff;
-  --radius: 3px;
+  --radius: 2px;
 }
 
 html {
-  font-size: 16px;
+  font-size: 10px;
   overflow-x: hidden;
 }
 
@@ -32,27 +32,27 @@ body {
 /* ── Nav Pills ── */
 #nav-bar {
   position: fixed;
-  top: 28px;
-  left: 56px;
-  right: 56px;
+  top: 21px;
+  left: 42px;
+  right: 42px;
   z-index: 30;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .nav-pill {
-  padding: 7px 22px;
+  padding: 5px 16px;
   border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 50px;
+  border-radius: 38px;
   background: rgba(0,0,0,0.4);
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: 0.64rem;
   font-weight: 500;
   cursor: pointer;
   outline: none;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
@@ -79,7 +79,7 @@ body {
   color: var(--text-dim);
   border-color: rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.08);
-  max-width: 360px;
+  max-width: 270px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -97,7 +97,7 @@ body {
 }
 
 #coming-soon span {
-  font-size: 1.6rem;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--text-dim);
   letter-spacing: 1px;
@@ -112,13 +112,13 @@ body {
   position: fixed;
   inset: 0;
   z-index: 2;
-  padding: 88px 56px 24px;
+  padding: 66px 42px 18px;
   background: var(--bg);
   overflow: hidden;
 }
 
 #library-list {
-  height: calc(100vh - 112px);
+  height: calc(100vh - 84px);
   overflow-y: auto;
   scroll-behavior: smooth;
   scrollbar-width: none;
@@ -130,25 +130,25 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 9px 12px;
   border-radius: var(--radius);
   background: rgba(255,255,255,0.06);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   outline: none;
 }
 
 .library-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   min-width: 0;
   flex: 1;
 }
 
 .library-icon {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   color: var(--text-dim);
   flex-shrink: 0;
   display: flex;
@@ -157,13 +157,13 @@ body {
 }
 
 .library-icon svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   display: block;
 }
 
 .library-name {
-  font-size: 1rem;
+  font-size: 0.75rem;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -172,7 +172,7 @@ body {
 }
 
 .library-meta {
-  font-size: 0.85rem;
+  font-size: 0.64rem;
   color: var(--text-dim);
   flex-shrink: 0;
 }
@@ -185,9 +185,9 @@ body {
 
 
 .library-empty {
-  padding: 14px 16px;
+  padding: 10px 12px;
   color: var(--text-dim);
-  font-size: 0.95rem;
+  font-size: 0.71rem;
 }
 
 
@@ -230,8 +230,8 @@ body {
 #hero-content {
   position: absolute;
   bottom: 45vh;
-  left: 56px;
-  max-width: 550px;
+  left: 42px;
+  max-width: 412px;
   z-index: 2;
 }
 
@@ -240,30 +240,30 @@ body {
 }
 
 #hero-title {
-  font-size: 2.8rem;
+  font-size: 2.1rem;
   font-weight: 700;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.4px;
   line-height: 1.1;
-  margin-bottom: 14px;
-}
-
-#hero-year {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text);
-  display: block;
   margin-bottom: 10px;
 }
 
+#hero-year {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text);
+  display: block;
+  margin-bottom: 8px;
+}
+
 #hero-overview {
-  font-size: 0.95rem;
+  font-size: 0.71rem;
   line-height: 1.5;
   color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: 9px;
 }
 
 /* ── Content Rows ── */
@@ -275,39 +275,39 @@ body {
   height: 45vh;
   z-index: 2;
   overflow-y: hidden;
-  padding-bottom: 20px;
+  padding-bottom: 15px;
   mask-image: linear-gradient(to bottom, transparent 0%, black 8%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%);
 }
 
 .row {
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   overflow: visible;
 }
 
 .row-title {
-  font-size: 1.15rem;
+  font-size: 0.86rem;
   font-weight: 600;
-  padding: 0 56px 10px;
-  letter-spacing: 0.3px;
+  padding: 0 42px 8px;
+  letter-spacing: 0.2px;
 }
 
 .row-scroll {
   display: flex;
-  gap: 10px;
-  padding: 14px 56px;
+  gap: 8px;
+  padding: 10px 42px;
   overflow-x: auto;
   overflow-y: visible;
   scroll-behavior: smooth;
   scrollbar-width: none;
-  clip-path: inset(-20px -0px -20px -0px);
+  clip-path: inset(-15px -0px -15px -0px);
 }
 
 .row-scroll::-webkit-scrollbar { display: none; }
 
 /* ── Movie Card ── */
 .card {
-  flex: 0 0 160px;
+  flex: 0 0 120px;
   border-radius: var(--radius);
   overflow: hidden;
   position: relative;
@@ -327,7 +327,7 @@ body {
 /* ── Focus States (TV D-pad) ── */
 .focusable:focus {
   transform: scale(1.08);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--focus-ring);
   z-index: 10;
 }
 
