@@ -272,7 +272,7 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color.Black)
             .focusRequester(screenFocusRequester)
-            .focusable(true)
+            .focusable(!isMenuOpen)
             .onKeyEvent { keyEvent ->
                 if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
                     val keyCode = keyEvent.nativeKeyEvent.keyCode
@@ -982,12 +982,18 @@ private fun TrackSelectionMenu(
     }
 
     val focusRequesters = remember(options.size) { List(options.size) { FocusRequester() } }
-    val selectedIndex = options.indexOfFirst { it.isSelected }.coerceAtLeast(0)
+    val selectedIndex = options.indexOfFirst { it.isSelected }
+    val firstEnabledIndex = options.indexOfFirst { it.isSupported }
+    val initialFocusIndex = when {
+        selectedIndex >= 0 && options.getOrNull(selectedIndex)?.isSupported == true -> selectedIndex
+        firstEnabledIndex >= 0 -> firstEnabledIndex
+        else -> 0
+    }
     val hasRealTracks = options.any { !it.isOff && !it.isAuto && it.group != null }
 
-    LaunchedEffect(options.size) {
-        if (options.isNotEmpty()) {
-            focusRequesters[selectedIndex].requestFocus()
+    LaunchedEffect(options.size, initialFocusIndex) {
+        if (options.isNotEmpty() && initialFocusIndex in options.indices) {
+            focusRequesters[initialFocusIndex].requestFocus()
         }
     }
 
