@@ -7,7 +7,6 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
-import android.view.WindowManager
 import android.content.Intent
 import android.webkit.WebChromeClient
 import android.webkit.JavascriptInterface
@@ -56,8 +55,7 @@ class MainActivity : AppCompatActivity() {
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             settings.useWideViewPort = true
             settings.loadWithOverviewMode = true
-            settings.allowFileAccessFromFileURLs = true
-            settings.allowUniversalAccessFromFileURLs = true
+            enableFileAccess(settings)
 
             webViewClient = WebViewClient()
             webChromeClient = WebChromeClient()
@@ -69,6 +67,10 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(webView)
         webView.loadUrl("file:///android_asset/index.html")
+
+        onBackPressedDispatcher.addCallback(this) {
+            handleBackPress()
+        }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -80,29 +82,8 @@ class MainActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_DPAD_RIGHT -> "ArrowRight"
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> "Enter"
             KeyEvent.KEYCODE_BACK -> {
-                // Custom back handling: library folder -> parent, library root -> home, home -> exit
-                when (currentPage) {
-                    "library" -> {
-                        val atRoot = libraryPath.isBlank() || libraryPath == "/media"
-                        if (atRoot) {
-                            webView.evaluateJavascript("window.__goHome && window.__goHome()", null)
-                        } else {
-                            webView.evaluateJavascript("window.__libraryBack && window.__libraryBack()", null)
-                        }
-                        return true
-                    }
-                    "home" -> {
-                        if (webView.canGoBack()) {
-                            webView.goBack()
-                            return true
-                        }
-                        return super.onKeyDown(keyCode, event)
-                    }
-                    else -> {
-                        webView.evaluateJavascript("window.__goHome && window.__goHome()", null)
-                        return true
-                    }
-                }
+                handleBackPress()
+                return true
             }
             else -> return super.onKeyDown(keyCode, event)
         }
@@ -114,12 +95,34 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
-    override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
+    private fun handleBackPress() {
+        // Custom back handling: library folder -> parent, library root -> home, home -> exit
+        when (currentPage) {
+            "library" -> {
+                val atRoot = libraryPath.isBlank() || libraryPath == "/media"
+                if (atRoot) {
+                    webView.evaluateJavascript("window.__goHome && window.__goHome()", null)
+                } else {
+                    webView.evaluateJavascript("window.__libraryBack && window.__libraryBack()", null)
+                }
+            }
+            "home" -> {
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    finish()
+                }
+            }
+            else -> {
+                webView.evaluateJavascript("window.__goHome && window.__goHome()", null)
+            }
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun enableFileAccess(settings: WebSettings) {
+        settings.allowFileAccessFromFileURLs = true
+        settings.allowUniversalAccessFromFileURLs = true
     }
 
     private inner class NativeBridge {

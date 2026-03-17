@@ -56,7 +56,6 @@ import androidx.media3.common.TrackGroup
 import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.source.TrackGroupArray
 import androidx.media3.ui.CaptionStyleCompat
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.ExoPlayer
@@ -68,7 +67,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(
     streamUrl: String,
@@ -229,11 +227,7 @@ fun PlayerScreen(
 
     LaunchedEffect(streamUrl) {
         // Reset track overrides when loading a new item to avoid stale audio selections.
-        trackSelector.parameters = trackSelector.parameters.buildUpon()
-            .clearSelectionOverrides()
-            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
-            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-            .build()
+        resetTrackOverrides(trackSelector)
         retryCount = 0
         retryToken = 0L
         pendingAudioFallbackParams = null
@@ -554,9 +548,9 @@ fun PlayerScreen(
 
         if (isMenuOpen) {
             val menuType = if (showCaptionMenu) C.TRACK_TYPE_TEXT else C.TRACK_TYPE_AUDIO
-            val title = if (showCaptionMenu) "Subtitles" else "Audio"
+            val menuTitle = if (showCaptionMenu) "Subtitles" else "Audio"
             TrackSelectionMenu(
-                title = title,
+                title = menuTitle,
                 exoPlayer = exoPlayer,
                 trackSelector = trackSelector,
                 trackType = menuType,
@@ -883,7 +877,17 @@ private data class TrackOption(
     val isAuto: Boolean = false
 )
 
+@Suppress("DEPRECATION")
+private fun resetTrackOverrides(trackSelector: DefaultTrackSelector) {
+    trackSelector.parameters = trackSelector.parameters.buildUpon()
+        .clearSelectionOverrides()
+        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+        .build()
+}
+
 @Composable
+@Suppress("DEPRECATION")
 private fun TrackSelectionMenu(
     title: String,
     exoPlayer: ExoPlayer,
@@ -898,7 +902,7 @@ private fun TrackSelectionMenu(
         (0 until rendererCount).firstOrNull { getRendererType(it) == trackType }
     }
     val isTypeDisabled = rendererIndex?.let { trackSelector.parameters.getRendererDisabled(it) } ?: false
-    val trackGroups = rendererIndex?.let { mapped?.getTrackGroups(it) }
+    val trackGroups = if (rendererIndex != null && mapped != null) mapped.getTrackGroups(rendererIndex) else null
     val selectionOverride = remember(rendererIndex, trackGroups, trackSelector.parameters) {
         if (rendererIndex != null && trackGroups != null) {
             trackSelector.parameters.getSelectionOverride(rendererIndex, trackGroups)
@@ -1089,6 +1093,7 @@ private fun TrackSelectionMenu(
     }
 }
 
+@Suppress("DEPRECATION")
 private fun applyTrackSelection(
     trackSelector: DefaultTrackSelector,
     trackType: Int,
