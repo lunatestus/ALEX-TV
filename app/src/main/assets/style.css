@@ -34,8 +34,10 @@ body {
   position: fixed;
   top: 28px;
   left: 56px;
+  right: 56px;
   z-index: 30;
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -71,6 +73,7 @@ body {
 }
 
 .nav-status {
+  margin-left: auto;
   cursor: default;
   pointer-events: none;
   color: var(--text-dim);
