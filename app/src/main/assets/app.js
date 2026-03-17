@@ -10,11 +10,6 @@ const LIBRARY_ROOT_PATH = '/media';
 const ROWS = [
   { id: 'trending',    url: `/trending/movie/week?api_key=${API_KEY}`,  type: 'movie' },
   { id: 'popular',     url: `/movie/popular?api_key=${API_KEY}`,       type: 'movie' },
-  { id: 'top_rated',   url: `/movie/top_rated?api_key=${API_KEY}`,     type: 'movie' },
-  { id: 'now_playing', url: `/movie/now_playing?api_key=${API_KEY}`,   type: 'movie' },
-  { id: 'upcoming',    url: `/movie/upcoming?api_key=${API_KEY}`,      type: 'movie' },
-  { id: 'popular_tv',  url: `/tv/popular?api_key=${API_KEY}`,          type: 'tv' },
-  { id: 'latest_tv',   url: `/tv/on_the_air?api_key=${API_KEY}`,      type: 'tv' },
 ];
 
 // ── State ──
