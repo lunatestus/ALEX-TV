@@ -518,7 +518,7 @@ function totalContentRows() {
   return ROWS.length;
 }
 
-const NAV_THROTTLE_MS = 350; // Force a strict minimum delay between movements
+const NAV_THROTTLE_MS = 250; // Force a strict minimum delay between movements
 
 function scheduleNav(key) {
   const now = performance.now();
