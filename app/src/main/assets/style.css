@@ -54,6 +54,7 @@ body {
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+  will-change: transform, box-shadow, background, color;
 }
 
 .nav-pill.active {
@@ -136,6 +137,7 @@ body {
   background: rgba(255,255,255,0.06);
   margin-bottom: 6px;
   outline: none;
+  will-change: transform, box-shadow;
 }
 
 .library-left {
@@ -314,6 +316,7 @@ body {
   outline: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   background: var(--card);
+  will-change: transform, box-shadow;
 }
 
 .card-poster {

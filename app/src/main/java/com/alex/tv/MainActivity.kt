@@ -80,25 +80,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        // Map D-pad keys to arrow keys for the WebView
-        val jsKey = when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_UP -> "ArrowUp"
-            KeyEvent.KEYCODE_DPAD_DOWN -> "ArrowDown"
-            KeyEvent.KEYCODE_DPAD_LEFT -> "ArrowLeft"
-            KeyEvent.KEYCODE_DPAD_RIGHT -> "ArrowRight"
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> "Enter"
-            KeyEvent.KEYCODE_BACK -> {
-                handleBackPress()
-                return true
-            }
-            else -> return super.onKeyDown(keyCode, event)
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            handleBackPress()
+            return true
         }
-
-        webView.evaluateJavascript(
-            "document.dispatchEvent(new KeyboardEvent('keydown', {key: '$jsKey', bubbles: true}))",
-            null
-        )
-        return true
+        return super.onKeyDown(keyCode, event)
     }
 
     private fun handleBackPress() {
