@@ -549,12 +549,12 @@ fun PlayerScreen(
                 .align(Alignment.TopStart)
                 .fillMaxWidth()
                 .height(120.dp)
+                .alpha(controlsAlpha)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(Color(0xD9000000), Color.Transparent)
                     )
                 )
-                .alpha(controlsAlpha)
         )
         Text(
             text = title,
@@ -640,7 +640,7 @@ fun PlayerSeekBar(
     val isDurationKnown = duration > 0L
     val isSeekable = isDurationKnown && exoPlayer.isCurrentMediaItemSeekable
 
-    val barHeight by animateDpAsState(targetValue = if (isProgressFocused) 8.dp else 3.dp)
+    val barHeight = 3.dp
     val dotSize by animateDpAsState(targetValue = if (isProgressFocused) 14.dp else 0.dp)
     
     val progress = if (isDurationKnown) currentPosition.toFloat() / duration.toFloat() else 0f
