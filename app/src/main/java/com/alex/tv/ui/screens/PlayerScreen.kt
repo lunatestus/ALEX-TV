@@ -6,6 +6,7 @@ import android.view.KeyEvent
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.graphics.Color as AndroidColor
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -125,6 +126,14 @@ fun PlayerScreen(
     val settingsFocusRequester = remember { FocusRequester() }
     val screenFocusRequester = remember { FocusRequester() }
     var resumeOnStart by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = isMenuOpen) {
+        showCaptionMenu = false
+        showAudioMenu = false
+        showControls = true
+        lastInteraction = System.currentTimeMillis()
+        playPauseFocusRequester.requestFocus()
+    }
 
     // Listen to exoPlayer play state changes
     DisposableEffect(exoPlayer) {
@@ -405,6 +414,7 @@ fun PlayerScreen(
                     exoPlayer = exoPlayer,
                     onInteraction = { lastInteraction = System.currentTimeMillis() },
                     showControls = showControls,
+                    controlsEnabled = showControls && !isMenuOpen,
                     focusRequester = seekbarFocusRequester,
                     downRequester = playPauseFocusRequester
                 )
@@ -430,7 +440,7 @@ fun PlayerScreen(
                                 right = rewindFocusRequester
                                 left = FocusRequester.Cancel
                             },
-                            enabled = showControls
+                            enabled = showControls && !isMenuOpen
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         PlayerButton(
@@ -446,7 +456,7 @@ fun PlayerScreen(
                                 left = playPauseFocusRequester
                                 right = forwardFocusRequester
                             },
-                            enabled = showControls
+                            enabled = showControls && !isMenuOpen
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         PlayerButton(
@@ -464,7 +474,7 @@ fun PlayerScreen(
                                 left = rewindFocusRequester
                                 right = captionFocusRequester
                             },
-                            enabled = showControls
+                            enabled = showControls && !isMenuOpen
                         )
                     }
 
@@ -483,7 +493,7 @@ fun PlayerScreen(
                                 left = forwardFocusRequester
                                 right = audioFocusRequester
                             },
-                            enabled = showControls && playbackState == Player.STATE_READY
+                            enabled = showControls && !isMenuOpen && playbackState == Player.STATE_READY
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         PlayerButton(
@@ -500,7 +510,7 @@ fun PlayerScreen(
                                 left = captionFocusRequester
                                 right = settingsFocusRequester
                             },
-                            enabled = showControls && playbackState == Player.STATE_READY
+                            enabled = showControls && !isMenuOpen && playbackState == Player.STATE_READY
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         PlayerButton(
@@ -512,7 +522,7 @@ fun PlayerScreen(
                                 left = audioFocusRequester
                                 right = FocusRequester.Cancel
                             },
-                            enabled = showControls
+                            enabled = showControls && !isMenuOpen
                         )
                     }
                 }
@@ -575,6 +585,7 @@ fun PlayerSeekBar(
     exoPlayer: ExoPlayer, 
     onInteraction: () -> Unit,
     showControls: Boolean,
+    controlsEnabled: Boolean,
     focusRequester: FocusRequester,
     downRequester: FocusRequester
 ) {
@@ -692,7 +703,7 @@ fun PlayerSeekBar(
                 } else false
             }
             // Only focusable if controls are shown
-            .focusable(showControls)
+            .focusable(controlsEnabled)
             .padding(vertical = 4.dp)
     ) {
         Row(
