@@ -475,32 +475,42 @@ function focusCurrent(isRepeat = false) {
 }
 
 function scrollToRow(el, isRepeat = false) {
+  const content = document.getElementById('content');
   const rowEl = el.closest('.row');
   if (!rowEl) return;
   const rowIdx = Number(rowEl.dataset.rowIndex);
   if (!Number.isNaN(rowIdx) && rowIdx === lastRowScrollIndex) return;
   lastRowScrollIndex = Number.isNaN(rowIdx) ? null : rowIdx;
-  
+  const targetScroll = rowEl.offsetTop - 16;
   const behavior = isRepeat ? 'auto' : 'smooth';
-  rowEl.scrollIntoView({
-      behavior: behavior,
-      block: 'center', // Keep the focused row in the vertical center of the content area
-      inline: 'nearest'
-  });
+  content.scrollTo({ top: targetScroll, behavior });
 }
 
 function scrollIntoRow(el, isRepeat = false) {
-  if (!el) return;
+  const scroll = el.closest('.row-scroll');
+  if (!scroll) return;
   
-  // Use native scrollIntoView with inline: 'center' to keep the focused item perfectly in the middle of the screen.
-  // When repeating (holding down), snap instantly. Otherwise, smooth animate.
-  const behavior = isRepeat ? 'auto' : 'smooth';
+  const padding = 42;
+  const elLeft = el.offsetLeft;
+  const elWidth = el.offsetWidth;
   
-  el.scrollIntoView({ 
-    behavior: behavior,
-    block: 'nearest',   // Keep vertical scrolling minimal
-    inline: 'center'    // Always center the focused card horizontally!
-  });
+  let currentScroll = parseFloat(scroll.dataset.targetScroll);
+  if (isNaN(currentScroll)) currentScroll = scroll.scrollLeft;
+  
+  const scrollWidth = scroll.clientWidth;
+  let targetScroll = currentScroll;
+
+  if (elLeft < currentScroll + padding) {
+    targetScroll = elLeft - padding;
+  } else if (elLeft + elWidth > currentScroll + scrollWidth - padding) {
+    targetScroll = elLeft + elWidth - scrollWidth + padding;
+  }
+
+  if (targetScroll !== currentScroll) {
+    scroll.dataset.targetScroll = targetScroll;
+    const behavior = isRepeat ? 'auto' : 'smooth';
+    scroll.scrollTo({ left: targetScroll, behavior });
+  }
 }
 
 function clamp(v, min, max) {
