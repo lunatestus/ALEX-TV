@@ -70,6 +70,18 @@ body {
   -webkit-backdrop-filter: none;
 }
 
+.nav-status {
+  cursor: default;
+  pointer-events: none;
+  color: var(--text-dim);
+  border-color: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.08);
+  max-width: 360px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── Coming Soon ── */
 #coming-soon {
   position: fixed;
@@ -167,6 +179,7 @@ body {
   box-shadow: inset 0 0 0 2px var(--focus-ring);
   background: rgba(255,255,255,0.1);
 }
+
 
 .library-empty {
   padding: 14px 16px;
