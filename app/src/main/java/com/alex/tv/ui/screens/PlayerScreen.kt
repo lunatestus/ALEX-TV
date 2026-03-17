@@ -282,8 +282,10 @@ fun PlayerScreen(
                             showAudioMenu = false
                             showControls = true
                             playPauseFocusRequester.requestFocus()
+                            return@onKeyEvent true
                         }
-                        return@onKeyEvent true
+                        // Let the menu handle navigation keys (D-pad up/down).
+                        return@onKeyEvent false
                     }
                     when (keyCode) {
                         KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
