@@ -2,6 +2,7 @@
 const API_KEY = '8bd45cfb804f84ce85fa6accd833d6a1';
 const BASE    = 'https://api.themoviedb.org/3';
 const IMG     = 'https://image.tmdb.org/t/p';
+const BACKDROP_SIZE = 'w1280';
 
 // ── Endpoints ──
 const ROWS = [
@@ -18,9 +19,16 @@ const ROWS = [
 const nav = {
   area: 0,
   col: 0,
+  cols: [],         // remember last column per row
   rows: [],         // will hold references to focusable arrays per row
   movies: [],       // parallel array: movies[rowIdx][colIdx] = movie data
 };
+
+const NAV_MIN_INTERVAL_MS = 120;
+let navLastTime = 0;
+let navQueuedKey = null;
+let navQueueTimer = null;
+let lastRowScrollIndex = null;
 
 // ── Helpers ──
 function tmdbFetch(path) {
@@ -31,8 +39,8 @@ function posterURL(path, size = 'w300') {
   return path ? `${IMG}/${size}${path}` : '';
 }
 
-function backdropURL(path) {
-  return path ? `${IMG}/original${path}` : '';
+function backdropURL(path, size = BACKDROP_SIZE) {
+  return path ? `${IMG}/${size}${path}` : '';
 }
 
 function year(dateStr) {
@@ -97,6 +105,7 @@ function createCard(movie, rowIdx, colIdx) {
 function renderRow(rowEl, movies, rowIdx) {
   const scroll = rowEl.querySelector('.row-scroll');
   scroll.innerHTML = '';
+  rowEl.dataset.rowIndex = rowIdx;
   const focusables = [];
   nav.movies[rowIdx] = movies;
   movies.forEach((movie, i) => {
@@ -179,6 +188,7 @@ function focusCurrent() {
   }
   const row = nav.rows[nav.area] || [];
   nav.col = clamp(nav.col, 0, row.length - 1);
+  nav.cols[nav.area] = nav.col;
   const el = row[nav.col];
   if (el) {
     el.focus({ preventScroll: true });
@@ -193,6 +203,9 @@ function scrollToRow(el) {
   const content = document.getElementById('content');
   const rowEl = el.closest('.row');
   if (!rowEl) return;
+  const rowIdx = Number(rowEl.dataset.rowIndex);
+  if (!Number.isNaN(rowIdx) && rowIdx === lastRowScrollIndex) return;
+  lastRowScrollIndex = Number.isNaN(rowIdx) ? null : rowIdx;
   const targetScroll = rowEl.offsetTop - 16;
   content.scrollTo({ top: targetScroll, behavior: 'smooth' });
 }
@@ -202,10 +215,16 @@ function scrollIntoRow(el) {
   if (!scroll) return;
   const elRect = el.getBoundingClientRect();
   const scrollRect = scroll.getBoundingClientRect();
-  if (elRect.left < scrollRect.left + 56) {
-    scroll.scrollLeft -= (scrollRect.left + 56 - elRect.left + 20);
-  } else if (elRect.right > scrollRect.right - 56) {
-    scroll.scrollLeft += (elRect.right - scrollRect.right + 56 + 20);
+  const leftEdge = scrollRect.left + 56;
+  const rightEdge = scrollRect.right - 56;
+  let delta = 0;
+  if (elRect.left < leftEdge) {
+    delta = elRect.left - leftEdge - 20;
+  } else if (elRect.right > rightEdge) {
+    delta = elRect.right - rightEdge + 20;
+  }
+  if (delta !== 0) {
+    scroll.scrollTo({ left: scroll.scrollLeft + delta, behavior: 'smooth' });
   }
 }
 
@@ -217,10 +236,28 @@ function totalContentRows() {
   return ROWS.length;
 }
 
-function handleKey(e) {
-  const key = e.key;
-  if (!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'].includes(key)) return;
-  e.preventDefault();
+function scheduleNav(key) {
+  const now = performance.now();
+  const elapsed = now - navLastTime;
+  const delay = Math.max(0, NAV_MIN_INTERVAL_MS - elapsed);
+  if (delay === 0) {
+    navLastTime = now;
+    processNavKey(key);
+    return;
+  }
+  navQueuedKey = key;
+  clearTimeout(navQueueTimer);
+  navQueueTimer = setTimeout(() => {
+    navLastTime = performance.now();
+    const queued = navQueuedKey;
+    navQueuedKey = null;
+    if (queued) processNavKey(queued);
+  }, delay);
+}
+
+function processNavKey(key) {
+  const prevArea = nav.area;
+  const prevCol = nav.col;
 
   switch (key) {
     case 'ArrowRight':
@@ -240,10 +277,11 @@ function handleKey(e) {
       if (nav.area === 'nav') {
         if (currentPage === 'home') {
           nav.area = 0;
-          nav.col = 0;
+          nav.col = nav.cols[0] ?? 0;
         }
       } else if (nav.area < totalContentRows() - 1) {
         nav.area++;
+        nav.col = nav.cols[nav.area] ?? nav.col;
       }
       break;
 
@@ -254,6 +292,7 @@ function handleKey(e) {
         nav.col = navPills.findIndex(p => p.dataset.page === currentPage);
       } else {
         nav.area--;
+        nav.col = nav.cols[nav.area] ?? nav.col;
       }
       break;
 
@@ -261,7 +300,15 @@ function handleKey(e) {
       return;
   }
 
+  if (nav.area === prevArea && nav.col === prevCol) return;
   focusCurrent();
+}
+
+function handleKey(e) {
+  const key = e.key;
+  if (!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'].includes(key)) return;
+  e.preventDefault();
+  scheduleNav(key);
 }
 
 document.addEventListener('keydown', handleKey);
