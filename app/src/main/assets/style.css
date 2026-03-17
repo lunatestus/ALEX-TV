@@ -106,12 +106,7 @@ body {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  margin-bottom: 14px;
-}
-
-#library-path {
-  font-size: 0.9rem;
-  color: var(--text-dim);
+  margin-bottom: 6px;
 }
 
 #library-list {
@@ -151,7 +146,7 @@ body {
 
 .library-item.focusable:focus {
   transform: none;
-  box-shadow: 0 0 0 2px var(--focus-ring);
+  box-shadow: inset 0 0 0 2px var(--focus-ring);
   background: rgba(255,255,255,0.08);
 }
 

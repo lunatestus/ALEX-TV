@@ -196,10 +196,7 @@ async function loadLibrary(path) {
 
 function renderLibrary() {
   const list = document.getElementById('library-list');
-  const pathEl = document.getElementById('library-path');
-  if (!list || !pathEl) return;
-
-  pathEl.textContent = libraryState.path || '/';
+  if (!list) return;
   list.innerHTML = '';
 
   const items = libraryState.items || [];
