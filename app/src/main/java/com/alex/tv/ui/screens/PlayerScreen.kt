@@ -902,7 +902,7 @@ private fun TrackSelectionMenu(
         (0 until rendererCount).firstOrNull { getRendererType(it) == trackType }
     }
     val isTypeDisabled = rendererIndex?.let { trackSelector.parameters.getRendererDisabled(it) } ?: false
-    val trackGroups = if (rendererIndex != null && mapped != null) mapped.getTrackGroups(rendererIndex) else null
+    val trackGroups = if (rendererIndex != null) mapped.getTrackGroups(rendererIndex) else null
     val selectionOverride = remember(rendererIndex, trackGroups, trackSelector.parameters) {
         if (rendererIndex != null && trackGroups != null) {
             trackSelector.parameters.getSelectionOverride(rendererIndex, trackGroups)
