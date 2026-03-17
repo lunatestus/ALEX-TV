@@ -302,7 +302,11 @@ async function openLibraryFile(item) {
     const url = `${libraryState.tunnelUrl}/download-url?path=${encodeURIComponent(item.path)}`;
     const data = await fetchJson(url);
     if (data && data.url) {
-      window.location.href = data.url;
+      if (nativeBridge && typeof nativeBridge.play === 'function') {
+        nativeBridge.play(data.url, item.name || '');
+      } else {
+        throw new Error('Native player unavailable');
+      }
     } else {
       throw new Error('Missing stream URL');
     }

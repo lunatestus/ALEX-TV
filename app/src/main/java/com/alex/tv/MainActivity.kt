@@ -8,6 +8,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.content.Intent
 import android.webkit.WebChromeClient
 import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
@@ -143,6 +144,17 @@ class MainActivity : AppCompatActivity() {
         fun setNavState(page: String, path: String) {
             currentPage = page
             libraryPath = path
+        }
+
+        @JavascriptInterface
+        fun play(url: String, title: String) {
+            if (url.isBlank()) return
+            runOnUiThread {
+                val intent = Intent(this@MainActivity, PlayerActivity::class.java)
+                intent.putExtra(PlayerActivity.EXTRA_STREAM_URL, url)
+                intent.putExtra(PlayerActivity.EXTRA_TITLE, title)
+                startActivity(intent)
+            }
         }
     }
 
