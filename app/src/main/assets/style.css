@@ -97,20 +97,13 @@ body {
   position: fixed;
   inset: 0;
   z-index: 2;
-  padding: 120px 56px 40px;
+  padding: 88px 56px 24px;
   background: var(--bg);
   overflow: hidden;
 }
 
-#library-header {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 6px;
-}
-
 #library-list {
-  max-height: calc(100vh - 220px);
+  height: calc(100vh - 112px);
   overflow-y: auto;
   scroll-behavior: smooth;
   scrollbar-width: none;
@@ -130,12 +123,37 @@ body {
   outline: none;
 }
 
+.library-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.library-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.library-icon svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
 .library-name {
   font-size: 1rem;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
 }
 
 .library-meta {
