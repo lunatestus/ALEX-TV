@@ -380,7 +380,9 @@ fun PlayerScreen(
             update = { playerView ->
                 playerView.keepScreenOn = isPlaying
             },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .focusable(false)
         )
 
         if (playbackError != null) {
