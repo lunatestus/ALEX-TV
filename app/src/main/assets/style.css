@@ -12,7 +12,7 @@
 }
 
 html {
-  font-size: 10px;
+  font-size: 13px;
   overflow-x: hidden;
 }
 
@@ -47,7 +47,7 @@ body {
   border-radius: 38px;
   background: rgba(0,0,0,0.4);
   color: var(--text);
-  font-size: 0.64rem;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   outline: none;
@@ -97,7 +97,7 @@ body {
 }
 
 #coming-soon span {
-  font-size: 1.2rem;
+  font-size: 1.6rem;
   font-weight: 600;
   color: var(--text-dim);
   letter-spacing: 1px;
@@ -163,7 +163,7 @@ body {
 }
 
 .library-name {
-  font-size: 0.75rem;
+  font-size: 1rem;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -172,7 +172,7 @@ body {
 }
 
 .library-meta {
-  font-size: 0.64rem;
+  font-size: 0.85rem;
   color: var(--text-dim);
   flex-shrink: 0;
 }
@@ -187,7 +187,7 @@ body {
 .library-empty {
   padding: 10px 12px;
   color: var(--text-dim);
-  font-size: 0.71rem;
+  font-size: 0.95rem;
 }
 
 
@@ -240,7 +240,7 @@ body {
 }
 
 #hero-title {
-  font-size: 2.1rem;
+  font-size: 2.8rem;
   font-weight: 700;
   letter-spacing: -0.4px;
   line-height: 1.1;
@@ -248,7 +248,7 @@ body {
 }
 
 #hero-year {
-  font-size: 0.68rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: var(--text);
   display: block;
@@ -256,7 +256,7 @@ body {
 }
 
 #hero-overview {
-  font-size: 0.71rem;
+  font-size: 0.95rem;
   line-height: 1.5;
   color: var(--text);
   display: -webkit-box;
@@ -286,7 +286,7 @@ body {
 }
 
 .row-title {
-  font-size: 0.86rem;
+  font-size: 1.15rem;
   font-weight: 600;
   padding: 0 42px 8px;
   letter-spacing: 0.2px;
