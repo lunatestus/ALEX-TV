@@ -46,6 +46,7 @@ const libraryState = {
 const nativeBridge = typeof window !== 'undefined' ? window.AndroidBridge : null;
 const nativeCallbacks = {};
 let nativeCbSeq = 0;
+const LIBRARY_ROOT = LIBRARY_ROOT_PATH;
 
 function nativeFetchJson(url) {
   return new Promise((resolve, reject) => {
@@ -58,6 +59,11 @@ function nativeFetchJson(url) {
     }
     nativeBridge.fetchJson(url, id);
   });
+}
+
+function updateNavState() {
+  if (!nativeBridge || typeof nativeBridge.setNavState !== 'function') return;
+  nativeBridge.setNavState(currentPage, libraryState.path || LIBRARY_ROOT);
 }
 
 window.__nativeFetchResolve = function(id, ok, payload) {
@@ -163,6 +169,33 @@ function setLibraryStatus(text) {
   el.classList.remove('hidden');
 }
 
+function getParentPath(path) {
+  if (!path || path === LIBRARY_ROOT) return null;
+  const trimmed = path.replace(/\/+$/, '');
+  const idx = trimmed.lastIndexOf('/');
+  if (idx <= 0) return LIBRARY_ROOT;
+  const parent = trimmed.slice(0, idx);
+  if (!parent.startsWith(LIBRARY_ROOT)) return LIBRARY_ROOT;
+  return parent || LIBRARY_ROOT;
+}
+
+window.__libraryBack = function() {
+  const parent = getParentPath(libraryState.path || LIBRARY_ROOT);
+  if (!parent) {
+    window.__goHome && window.__goHome();
+    return;
+  }
+  nav.libraryIndex = 0;
+  loadLibrary(parent);
+};
+
+window.__goHome = function() {
+  nav.area = 'nav';
+  nav.col = navPills.findIndex(p => p.dataset.page === 'home');
+  switchPage('home');
+  focusCurrent();
+};
+
 async function resolveTunnelUrl() {
   const data = await fetchJson(TUNNEL_ROOT);
   if (!data || !data.url) throw new Error('Tunnel URL missing');
@@ -185,6 +218,7 @@ async function loadLibrary(path) {
     libraryState.path = data.path || path;
     libraryState.items = Array.isArray(data.items) ? data.items : [];
     libraryState.hasLoaded = true;
+    updateNavState();
     renderLibrary();
     setLibraryStatus(libraryState.items.length ? '' : 'Empty folder');
   } catch (err) {
@@ -373,6 +407,7 @@ function switchPage(page) {
 
   navPills.forEach(p => p.classList.toggle('active', p.dataset.page === page));
   currentPage = page;
+  updateNavState();
 
   if (page === 'home') {
     overlay.classList.add('hidden');

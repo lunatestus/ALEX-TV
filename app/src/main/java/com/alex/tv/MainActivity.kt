@@ -24,6 +24,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private val bridgeExecutor = Executors.newSingleThreadExecutor()
+    private var currentPage: String = "home"
+    private var libraryPath: String = "/media"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,11 +79,29 @@ class MainActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_DPAD_RIGHT -> "ArrowRight"
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> "Enter"
             KeyEvent.KEYCODE_BACK -> {
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                    return true
+                // Custom back handling: library folder -> parent, library root -> home, home -> exit
+                when (currentPage) {
+                    "library" -> {
+                        val atRoot = libraryPath.isBlank() || libraryPath == "/media"
+                        if (atRoot) {
+                            webView.evaluateJavascript("window.__goHome && window.__goHome()", null)
+                        } else {
+                            webView.evaluateJavascript("window.__libraryBack && window.__libraryBack()", null)
+                        }
+                        return true
+                    }
+                    "home" -> {
+                        if (webView.canGoBack()) {
+                            webView.goBack()
+                            return true
+                        }
+                        return super.onKeyDown(keyCode, event)
+                    }
+                    else -> {
+                        webView.evaluateJavascript("window.__goHome && window.__goHome()", null)
+                        return true
+                    }
                 }
-                return super.onKeyDown(keyCode, event)
             }
             else -> return super.onKeyDown(keyCode, event)
         }
@@ -117,6 +137,12 @@ class MainActivity : AppCompatActivity() {
                     webView.evaluateJavascript(js, null)
                 }
             }
+        }
+
+        @JavascriptInterface
+        fun setNavState(page: String, path: String) {
+            currentPage = page
+            libraryPath = path
         }
     }
 
