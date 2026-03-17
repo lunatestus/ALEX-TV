@@ -41,28 +41,39 @@ function year(dateStr) {
 
 // ── Hero ──
 let heroTimer = null;
+let heroFadeTimer = null;
+let heroPending = null;
+let heroCurrentId = null;
 function setHero(movie) {
   const backdrop = document.getElementById('hero-backdrop');
-  const content  = document.getElementById('hero-content');
 
-  // Cancel any pending transition
+  // Minimal transition: debounce rapid focus moves and only crossfade backdrop
+  heroPending = movie;
   clearTimeout(heroTimer);
-
-  // Fade out
-  backdrop.className = 'fade-out';
-  content.className  = 'fade-out';
+  clearTimeout(heroFadeTimer);
 
   heroTimer = setTimeout(() => {
-    // Swap content while invisible
-    backdrop.style.backgroundImage = `url(${backdropURL(movie.backdrop_path)})`;
-    document.getElementById('hero-title').textContent = movie.title || movie.name;
-    document.getElementById('hero-year').textContent = year(movie.release_date || movie.first_air_date);
-    document.getElementById('hero-overview').textContent = movie.overview;
+    const next = heroPending;
+    heroPending = null;
+    if (!next) return;
 
-    // Fade in
-    backdrop.className = 'fade-in';
-    content.className  = 'fade-in';
-  }, 200);
+    const nextId = next.id || next.title || next.name || null;
+    if (nextId && nextId === heroCurrentId) return;
+    heroCurrentId = nextId;
+
+    // Fade out backdrop only
+    backdrop.className = 'fade-out';
+
+    heroFadeTimer = setTimeout(() => {
+      backdrop.style.backgroundImage = `url(${backdropURL(next.backdrop_path)})`;
+      document.getElementById('hero-title').textContent = next.title || next.name;
+      document.getElementById('hero-year').textContent = year(next.release_date || next.first_air_date);
+      document.getElementById('hero-overview').textContent = next.overview;
+
+      // Fade in backdrop
+      backdrop.className = 'fade-in';
+    }, 220);
+  }, 160);
 }
 
 // ── Cards ──
