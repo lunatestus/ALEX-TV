@@ -194,7 +194,7 @@ window.__goHome = function() {
   nav.area = 'nav';
   nav.col = navPills.findIndex(p => p.dataset.page === 'home');
   switchPage('home');
-  focusCurrent(isRepeat);
+  focusCurrent();
 };
 
 async function resolveTunnelUrl() {
@@ -289,14 +289,13 @@ function renderLibrary() {
   nav.libraryItems = Array.from(list.querySelectorAll('.library-item'));
   nav.libraryIndex = clamp(nav.libraryIndex, 0, nav.libraryItems.length - 1);
   if (currentPage === 'library' && nav.area === 'library') {
-    focusCurrent(isRepeat);
+    focusCurrent();
   }
 }
 
-function scrollLibraryIntoView(el, isRepeat = false) {
+function scrollLibraryIntoView(el) {
   if (!el) return;
-  const behavior = isRepeat ? 'auto' : 'smooth';
-  el.scrollIntoView({ block: 'nearest', behavior });
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 async function openLibraryFile(item) {
@@ -398,7 +397,7 @@ async function init() {
   // Start focus on first content row
   nav.area = 0;
   nav.col = 0;
-  focusCurrent(isRepeat);
+  focusCurrent();
 }
 
 // ── Page Switching ──
@@ -440,7 +439,7 @@ function switchPage(page) {
 }
 
 // ── Spatial Navigation ──
-function focusCurrent(isRepeat = false) {
+function focusCurrent() {
   if (nav.area === 'nav') {
     const pills = navPills;
     nav.col = clamp(nav.col, 0, pills.length - 1);
@@ -457,7 +456,7 @@ function focusCurrent(isRepeat = false) {
     const el = items[nav.libraryIndex];
     if (el) {
       el.focus({ preventScroll: true });
-      scrollLibraryIntoView(el, isRepeat);
+      scrollLibraryIntoView(el);
     }
     return;
   }
@@ -467,14 +466,14 @@ function focusCurrent(isRepeat = false) {
   const el = row[nav.col];
   if (el) {
     el.focus({ preventScroll: true });
-    scrollIntoRow(el, isRepeat);
-    scrollToRow(el, isRepeat);
+    scrollIntoRow(el);
+    scrollToRow(el);
     const movie = (nav.movies[nav.area] || [])[nav.col];
     if (movie) setHero(movie);
   }
 }
 
-function scrollToRow(el, isRepeat = false) {
+function scrollToRow(el) {
   const content = document.getElementById('content');
   const rowEl = el.closest('.row');
   if (!rowEl) return;
@@ -482,11 +481,10 @@ function scrollToRow(el, isRepeat = false) {
   if (!Number.isNaN(rowIdx) && rowIdx === lastRowScrollIndex) return;
   lastRowScrollIndex = Number.isNaN(rowIdx) ? null : rowIdx;
   const targetScroll = rowEl.offsetTop - 16;
-  const behavior = isRepeat ? 'auto' : 'smooth';
-  content.scrollTo({ top: targetScroll, behavior });
+  content.scrollTo({ top: targetScroll, behavior: 'smooth' });
 }
 
-function scrollIntoRow(el, isRepeat = false) {
+function scrollIntoRow(el) {
   const scroll = el.closest('.row-scroll');
   if (!scroll) return;
   
@@ -508,8 +506,7 @@ function scrollIntoRow(el, isRepeat = false) {
 
   if (targetScroll !== currentScroll) {
     scroll.dataset.targetScroll = targetScroll;
-    const behavior = isRepeat ? 'auto' : 'smooth';
-    scroll.scrollTo({ left: targetScroll, behavior });
+    scroll.scrollTo({ left: targetScroll, behavior: 'smooth' });
   }
 }
 
@@ -521,26 +518,19 @@ function totalContentRows() {
   return ROWS.length;
 }
 
-function scheduleNav(key, isRepeat = false) {
+const NAV_THROTTLE_MS = 250; // Force a strict minimum delay between movements
+
+function scheduleNav(key) {
   const now = performance.now();
-  const elapsed = now - navLastTime;
-  const delay = Math.max(0, NAV_MIN_INTERVAL_MS - elapsed);
-  if (delay === 0) {
-    navLastTime = now;
-    processNavKey(key, isRepeat);
+  if (now - navLastTime < NAV_THROTTLE_MS) {
+    // Completely ignore key events that come in too fast during a hold
     return;
   }
-  navQueuedKey = { key, isRepeat };
-  clearTimeout(navQueueTimer);
-  navQueueTimer = setTimeout(() => {
-    navLastTime = performance.now();
-    const queued = navQueuedKey;
-    navQueuedKey = null;
-    if (queued) processNavKey(queued.key, queued.isRepeat);
-  }, delay);
+  navLastTime = now;
+  processNavKey(key);
 }
 
-function processNavKey(key, isRepeat = false) {
+function processNavKey(key) {
   const prevArea = nav.area;
   const prevCol = nav.col;
   const prevLib = nav.libraryIndex;
@@ -578,7 +568,7 @@ function processNavKey(key, isRepeat = false) {
     }
 
     if (nav.area === prevArea && nav.libraryIndex === prevLib) return;
-    focusCurrent(isRepeat);
+    focusCurrent();
     return;
   }
 
@@ -627,14 +617,14 @@ function processNavKey(key, isRepeat = false) {
   }
 
   if (nav.area === prevArea && nav.col === prevCol) return;
-  focusCurrent(isRepeat);
+  focusCurrent();
 }
 
 function handleKey(e) {
   const key = e.key;
   if (!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'].includes(key)) return;
   e.preventDefault();
-  scheduleNav(key, e.repeat);
+  scheduleNav(key);
 }
 
 document.addEventListener('keydown', handleKey);
