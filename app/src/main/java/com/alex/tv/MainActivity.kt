@@ -1,8 +1,14 @@
 package com.alex.tv
 
 import android.annotation.SuppressLint
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.net.Uri
 import android.os.Bundle
 import android.os.Build
+import android.os.Environment
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
@@ -13,9 +19,12 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -27,10 +36,38 @@ class MainActivity : AppCompatActivity() {
     private val bridgeExecutor = Executors.newSingleThreadExecutor()
     private var currentPage: String = "home"
     private var libraryPath: String = "/media"
+    private var downloadId: Long = -1L
 
-    @SuppressLint("SetJavaScriptEnabled")
+    private val onDownloadComplete = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+            if (id == downloadId) {
+                installApk()
+            }
+        }
+    }
+
+    private fun installApk() {
+        val file = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "update.apk")
+        if (file.exists()) {
+            val uri = FileProvider.getUriForFile(this, "$packageName.provider", file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+            startActivity(intent)
+        }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled", "UnspecifiedRegisterReceiverFlag")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(onDownloadComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(onDownloadComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+        }
 
         // Fullscreen immersive
         supportActionBar?.hide()
@@ -92,6 +129,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        unregisterReceiver(onDownloadComplete)
         webView.destroy()
         super.onDestroy()
     }
@@ -166,6 +204,25 @@ class MainActivity : AppCompatActivity() {
                 intent.putExtra(PlayerActivity.EXTRA_STREAM_URL, url)
                 intent.putExtra(PlayerActivity.EXTRA_TITLE, title)
                 startActivity(intent)
+            }
+        }
+
+        @JavascriptInterface
+        fun updateApp(url: String) {
+            if (url.isBlank()) return
+            runOnUiThread {
+                Toast.makeText(this@MainActivity, "Downloading update...", Toast.LENGTH_SHORT).show()
+                val file = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "update.apk")
+                if (file.exists()) file.delete()
+                
+                val request = DownloadManager.Request(Uri.parse(url)).apply {
+                    setTitle("ALEX TV Update")
+                    setDescription("Downloading new version")
+                    setDestinationInExternalFilesDir(this@MainActivity, Environment.DIRECTORY_DOWNLOADS, "update.apk")
+                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                }
+                val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                downloadId = manager.enqueue(request)
             }
         }
     }

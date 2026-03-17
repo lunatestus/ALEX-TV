@@ -401,10 +401,20 @@ async function init() {
 }
 
 // ── Page Switching ──
-const navPills = Array.from(document.querySelectorAll('.nav-pill'));
+const navPills = Array.from(document.querySelectorAll('.nav-pill.focusable'));
 let currentPage = 'home';
 
 function switchPage(page) {
+  if (page === 'update') {
+    if (nativeBridge && typeof nativeBridge.updateApp === 'function') {
+      const btn = document.getElementById('nav-update');
+      if (btn) btn.textContent = 'Downloading...';
+      nativeBridge.updateApp('https://github.com/lunatestus/ALEX-TV/releases/download/latest/ALEX-TV.apk');
+    }
+    // Don't actually switch pages, stay on current
+    return;
+  }
+
   const overlay = document.getElementById('coming-soon');
   const hero = document.getElementById('hero');
   const content = document.getElementById('content');
