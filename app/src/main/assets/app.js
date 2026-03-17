@@ -406,12 +406,7 @@ let currentPage = 'home';
 
 function switchPage(page) {
   if (page === 'update') {
-    if (nativeBridge && typeof nativeBridge.updateApp === 'function') {
-      const btn = document.getElementById('nav-update');
-      if (btn) btn.textContent = 'Downloading...';
-      nativeBridge.updateApp('https://github.com/lunatestus/ALEX-TV/releases/download/latest/ALEX-TV.apk');
-    }
-    // Don't actually switch pages, stay on current
+    // We only focus the update button here, we don't trigger download
     return;
   }
 
@@ -540,6 +535,16 @@ function processNavKey(key) {
   const prevLib = nav.libraryIndex;
 
   if (key === 'Enter') {
+    if (nav.area === 'nav') {
+      const el = navPills[nav.col];
+      if (el && el.dataset.page === 'update') {
+        if (nativeBridge && typeof nativeBridge.updateApp === 'function') {
+          const btn = document.getElementById('nav-update');
+          if (btn) btn.textContent = 'Downloading...';
+          nativeBridge.updateApp('https://github.com/lunatestus/ALEX-TV/releases/download/latest/ALEX-TV.apk');
+        }
+      }
+    }
     if (nav.area === 'library') handleLibraryEnter();
     return;
   }
