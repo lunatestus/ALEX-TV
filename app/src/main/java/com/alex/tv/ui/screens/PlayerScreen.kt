@@ -223,12 +223,13 @@ fun PlayerScreen(
 
     LaunchedEffect(streamUrl, retryToken) {
         playbackError = null
+        val shouldResume = if (retryToken != 0L) exoPlayer.playWhenReady else true
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         if (!streamUrl.isNullOrBlank()) {
             exoPlayer.setMediaItem(MediaItem.fromUri(streamUrl))
             exoPlayer.prepare()
-            exoPlayer.playWhenReady = true
+            exoPlayer.playWhenReady = shouldResume
         } else {
             playbackError = "Stream unavailable"
         }
@@ -274,7 +275,17 @@ fun PlayerScreen(
             .focusable(true)
             .onKeyEvent { keyEvent ->
                 if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                    when (keyEvent.nativeKeyEvent.keyCode) {
+                    val keyCode = keyEvent.nativeKeyEvent.keyCode
+                    if (isMenuOpen) {
+                        if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                            showCaptionMenu = false
+                            showAudioMenu = false
+                            showControls = true
+                            playPauseFocusRequester.requestFocus()
+                        }
+                        return@onKeyEvent true
+                    }
+                    when (keyCode) {
                         KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
                             if (isMenuOpen) {
                                 showCaptionMenu = false
@@ -493,7 +504,7 @@ fun PlayerScreen(
                                 left = forwardFocusRequester
                                 right = audioFocusRequester
                             },
-                            enabled = showControls && !isMenuOpen && playbackState == Player.STATE_READY
+                            enabled = showControls && !isMenuOpen
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         PlayerButton(
@@ -510,7 +521,7 @@ fun PlayerScreen(
                                 left = captionFocusRequester
                                 right = settingsFocusRequester
                             },
-                            enabled = showControls && !isMenuOpen && playbackState == Player.STATE_READY
+                            enabled = showControls && !isMenuOpen
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         PlayerButton(

@@ -40,6 +40,7 @@ const libraryState = {
   items: [],
   loading: false,
   hasLoaded: false,
+  hasError: false,
 };
 
 // ── Helpers ──
@@ -158,8 +159,15 @@ function setHero(movie) {
 
 // ── Library ──
 function setLibraryStatus(text) {
-  // Status messages are intentionally hidden in the UI.
-  return;
+  const el = document.getElementById('library-status');
+  if (!el) return;
+  if (!text) {
+    el.textContent = '';
+    el.classList.add('hidden');
+    return;
+  }
+  el.textContent = text;
+  el.classList.remove('hidden');
 }
 
 function getParentPath(path) {
@@ -211,10 +219,15 @@ async function loadLibrary(path) {
     libraryState.path = data.path || path;
     libraryState.items = Array.isArray(data.items) ? data.items : [];
     libraryState.hasLoaded = true;
+    libraryState.hasError = false;
     updateNavState();
     renderLibrary();
     setLibraryStatus(libraryState.items.length ? '' : 'Empty folder');
   } catch (err) {
+    libraryState.items = [];
+    libraryState.hasLoaded = false;
+    libraryState.hasError = true;
+    renderLibrary();
     setLibraryStatus('Failed to load library');
   } finally {
     libraryState.loading = false;
@@ -230,7 +243,7 @@ function renderLibrary() {
   if (!items.length) {
     const empty = document.createElement('div');
     empty.className = 'library-empty';
-    empty.textContent = 'No items found';
+    empty.textContent = libraryState.hasError ? 'Unable to load library' : 'No items found';
     list.appendChild(empty);
     nav.libraryItems = [];
     nav.libraryIndex = 0;
@@ -292,16 +305,11 @@ async function openLibraryFile(item) {
       libraryState.tunnelUrl = await resolveTunnelUrl();
     }
     setLibraryStatus('Opening file...');
-    const url = `${libraryState.tunnelUrl}/download-url?path=${encodeURIComponent(item.path)}`;
-    const data = await fetchJson(url);
-    if (data && data.url) {
-      if (nativeBridge && typeof nativeBridge.play === 'function') {
-        nativeBridge.play(data.url, item.name || '');
-      } else {
-        throw new Error('Native player unavailable');
-      }
+    const streamUrl = `${libraryState.tunnelUrl}/stream?path=${encodeURIComponent(item.path)}`;
+    if (nativeBridge && typeof nativeBridge.play === 'function') {
+      nativeBridge.play(streamUrl, item.name || '');
     } else {
-      throw new Error('Missing stream URL');
+      throw new Error('Native player unavailable');
     }
   } catch (err) {
     setLibraryStatus('Unable to open file');
@@ -320,7 +328,7 @@ function handleLibraryEnter() {
 }
 
 function ensureLibraryLoaded() {
-  if (!libraryState.hasLoaded && !libraryState.loading) {
+  if (!libraryState.loading) {
     loadLibrary(libraryState.path || LIBRARY_ROOT_PATH);
   }
 }
