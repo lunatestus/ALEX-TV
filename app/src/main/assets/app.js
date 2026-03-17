@@ -24,7 +24,7 @@ const nav = {
   movies: [],       // parallel array: movies[rowIdx][colIdx] = movie data
 };
 
-const NAV_MIN_INTERVAL_MS = 120;
+const NAV_MIN_INTERVAL_MS = 160;
 let navLastTime = 0;
 let navQueuedKey = null;
 let navQueueTimer = null;
