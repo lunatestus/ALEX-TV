@@ -2,7 +2,7 @@
 
 A sleek Android TV app for browsing movies and TV shows, powered by TMDB.
 
-![ALEX TV Screenshot](screenshots/home.png)
+![ALEX TV Screenshot](screenshots/homeimage.png)
 
 ## Features
 
