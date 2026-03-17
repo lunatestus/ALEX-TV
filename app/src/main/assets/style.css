@@ -303,6 +303,7 @@ body {
   scroll-behavior: smooth;
   scrollbar-width: none;
   clip-path: inset(-15px -0px -15px -0px);
+  position: relative;
 }
 
 .row-scroll::-webkit-scrollbar { display: none; }

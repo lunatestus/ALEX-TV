@@ -194,7 +194,7 @@ window.__goHome = function() {
   nav.area = 'nav';
   nav.col = navPills.findIndex(p => p.dataset.page === 'home');
   switchPage('home');
-  focusCurrent();
+  focusCurrent(isRepeat);
 };
 
 async function resolveTunnelUrl() {
@@ -289,13 +289,14 @@ function renderLibrary() {
   nav.libraryItems = Array.from(list.querySelectorAll('.library-item'));
   nav.libraryIndex = clamp(nav.libraryIndex, 0, nav.libraryItems.length - 1);
   if (currentPage === 'library' && nav.area === 'library') {
-    focusCurrent();
+    focusCurrent(isRepeat);
   }
 }
 
-function scrollLibraryIntoView(el) {
+function scrollLibraryIntoView(el, isRepeat = false) {
   if (!el) return;
-  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  const behavior = isRepeat ? 'auto' : 'smooth';
+  el.scrollIntoView({ block: 'nearest', behavior });
 }
 
 async function openLibraryFile(item) {
@@ -397,7 +398,7 @@ async function init() {
   // Start focus on first content row
   nav.area = 0;
   nav.col = 0;
-  focusCurrent();
+  focusCurrent(isRepeat);
 }
 
 // ── Page Switching ──
@@ -439,7 +440,7 @@ function switchPage(page) {
 }
 
 // ── Spatial Navigation ──
-function focusCurrent() {
+function focusCurrent(isRepeat = false) {
   if (nav.area === 'nav') {
     const pills = navPills;
     nav.col = clamp(nav.col, 0, pills.length - 1);
@@ -456,7 +457,7 @@ function focusCurrent() {
     const el = items[nav.libraryIndex];
     if (el) {
       el.focus({ preventScroll: true });
-      scrollLibraryIntoView(el);
+      scrollLibraryIntoView(el, isRepeat);
     }
     return;
   }
@@ -466,14 +467,14 @@ function focusCurrent() {
   const el = row[nav.col];
   if (el) {
     el.focus({ preventScroll: true });
-    scrollIntoRow(el);
-    scrollToRow(el);
+    scrollIntoRow(el, isRepeat);
+    scrollToRow(el, isRepeat);
     const movie = (nav.movies[nav.area] || [])[nav.col];
     if (movie) setHero(movie);
   }
 }
 
-function scrollToRow(el) {
+function scrollToRow(el, isRepeat = false) {
   const content = document.getElementById('content');
   const rowEl = el.closest('.row');
   if (!rowEl) return;
@@ -481,24 +482,34 @@ function scrollToRow(el) {
   if (!Number.isNaN(rowIdx) && rowIdx === lastRowScrollIndex) return;
   lastRowScrollIndex = Number.isNaN(rowIdx) ? null : rowIdx;
   const targetScroll = rowEl.offsetTop - 16;
-  content.scrollTo({ top: targetScroll, behavior: 'smooth' });
+  const behavior = isRepeat ? 'auto' : 'smooth';
+  content.scrollTo({ top: targetScroll, behavior });
 }
 
-function scrollIntoRow(el) {
+function scrollIntoRow(el, isRepeat = false) {
   const scroll = el.closest('.row-scroll');
   if (!scroll) return;
-  const elRect = el.getBoundingClientRect();
-  const scrollRect = scroll.getBoundingClientRect();
-  const leftEdge = scrollRect.left + 56;
-  const rightEdge = scrollRect.right - 56;
-  let delta = 0;
-  if (elRect.left < leftEdge) {
-    delta = elRect.left - leftEdge - 20;
-  } else if (elRect.right > rightEdge) {
-    delta = elRect.right - rightEdge + 20;
+  
+  const padding = 42;
+  const elLeft = el.offsetLeft;
+  const elWidth = el.offsetWidth;
+  
+  let currentScroll = parseFloat(scroll.dataset.targetScroll);
+  if (isNaN(currentScroll)) currentScroll = scroll.scrollLeft;
+  
+  const scrollWidth = scroll.clientWidth;
+  let targetScroll = currentScroll;
+
+  if (elLeft < currentScroll + padding) {
+    targetScroll = elLeft - padding;
+  } else if (elLeft + elWidth > currentScroll + scrollWidth - padding) {
+    targetScroll = elLeft + elWidth - scrollWidth + padding;
   }
-  if (delta !== 0) {
-    scroll.scrollTo({ left: scroll.scrollLeft + delta, behavior: 'smooth' });
+
+  if (targetScroll !== currentScroll) {
+    scroll.dataset.targetScroll = targetScroll;
+    const behavior = isRepeat ? 'auto' : 'smooth';
+    scroll.scrollTo({ left: targetScroll, behavior });
   }
 }
 
@@ -510,26 +521,26 @@ function totalContentRows() {
   return ROWS.length;
 }
 
-function scheduleNav(key) {
+function scheduleNav(key, isRepeat = false) {
   const now = performance.now();
   const elapsed = now - navLastTime;
   const delay = Math.max(0, NAV_MIN_INTERVAL_MS - elapsed);
   if (delay === 0) {
     navLastTime = now;
-    processNavKey(key);
+    processNavKey(key, isRepeat);
     return;
   }
-  navQueuedKey = key;
+  navQueuedKey = { key, isRepeat };
   clearTimeout(navQueueTimer);
   navQueueTimer = setTimeout(() => {
     navLastTime = performance.now();
     const queued = navQueuedKey;
     navQueuedKey = null;
-    if (queued) processNavKey(queued);
+    if (queued) processNavKey(queued.key, queued.isRepeat);
   }, delay);
 }
 
-function processNavKey(key) {
+function processNavKey(key, isRepeat = false) {
   const prevArea = nav.area;
   const prevCol = nav.col;
   const prevLib = nav.libraryIndex;
@@ -567,7 +578,7 @@ function processNavKey(key) {
     }
 
     if (nav.area === prevArea && nav.libraryIndex === prevLib) return;
-    focusCurrent();
+    focusCurrent(isRepeat);
     return;
   }
 
@@ -616,14 +627,14 @@ function processNavKey(key) {
   }
 
   if (nav.area === prevArea && nav.col === prevCol) return;
-  focusCurrent();
+  focusCurrent(isRepeat);
 }
 
 function handleKey(e) {
   const key = e.key;
   if (!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'].includes(key)) return;
   e.preventDefault();
-  scheduleNav(key);
+  scheduleNav(key, e.repeat);
 }
 
 document.addEventListener('keydown', handleKey);
