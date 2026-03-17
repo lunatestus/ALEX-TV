@@ -993,6 +993,8 @@ private fun TrackSelectionMenu(
 
     LaunchedEffect(options.size, initialFocusIndex) {
         if (options.isNotEmpty() && initialFocusIndex in options.indices) {
+            // Wait a frame so LazyColumn items are placed before requesting focus.
+            withFrameNanos { }
             focusRequesters[initialFocusIndex].requestFocus()
         }
     }
@@ -1057,6 +1059,12 @@ private fun TrackSelectionMenu(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequesters[index])
+                            .focusProperties {
+                                if (index == 0) up = FocusRequester.Cancel
+                                if (index == options.lastIndex) down = FocusRequester.Cancel
+                                left = FocusRequester.Cancel
+                                right = FocusRequester.Cancel
+                            }
                             .onFocusChanged { isFocused = it.isFocused }
                             .focusable(isEnabled)
                             .onKeyEvent { keyEvent ->
