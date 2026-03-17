@@ -56,12 +56,13 @@ function setHero(movie) {
     // Swap content while invisible
     backdrop.style.backgroundImage = `url(${backdropURL(movie.backdrop_path)})`;
     document.getElementById('hero-title').textContent = movie.title || movie.name;
+    document.getElementById('hero-year').textContent = year(movie.release_date || movie.first_air_date);
     document.getElementById('hero-overview').textContent = movie.overview;
 
     // Fade in
     backdrop.className = 'fade-in';
     content.className  = 'fade-in';
-  }, 150);
+  }, 200);
 }
 
 // ── Cards ──
