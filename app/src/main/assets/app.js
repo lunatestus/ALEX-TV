@@ -28,11 +28,65 @@ const nav = {
   libraryItems: [],
 };
 
-const NAV_MIN_INTERVAL_MS = 160;
 let navLastTime = 0;
-let navQueuedKey = null;
-let navQueueTimer = null;
 let lastRowScrollIndex = null;
+
+class SmoothScroller {
+  constructor() {
+    this.targets = new Map();
+    this.running = false;
+  }
+  
+  scrollTo(el, targetX, targetY) {
+    if (!el) return;
+    if (!this.targets.has(el)) {
+      this.targets.set(el, { 
+        x: el.scrollLeft, 
+        y: el.scrollTop, 
+        tx: targetX !== null ? targetX : el.scrollLeft, 
+        ty: targetY !== null ? targetY : el.scrollTop 
+      });
+    } else {
+      const state = this.targets.get(el);
+      if (targetX !== null) state.tx = targetX;
+      if (targetY !== null) state.ty = targetY;
+    }
+    
+    if (!this.running) {
+      this.running = true;
+      requestAnimationFrame(() => this.tick());
+    }
+  }
+  
+  tick() {
+    let active = false;
+    this.targets.forEach((state, el) => {
+      const dx = state.tx - state.x;
+      const dy = state.ty - state.y;
+      
+      const lerp = 0.22; // Snappy but smooth
+      
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        state.x += dx * lerp;
+        state.y += dy * lerp;
+        el.scrollLeft = state.x;
+        el.scrollTop = state.y;
+        active = true;
+      } else {
+        el.scrollLeft = state.tx;
+        el.scrollTop = state.ty;
+        this.targets.delete(el);
+      }
+    });
+    
+    if (active) {
+      requestAnimationFrame(() => this.tick());
+    } else {
+      this.running = false;
+    }
+  }
+}
+const scroller = new SmoothScroller();
 
 const libraryState = {
   tunnelUrl: null,
@@ -295,7 +349,27 @@ function renderLibrary() {
 
 function scrollLibraryIntoView(el) {
   if (!el) return;
-  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  const list = document.getElementById('library-list');
+  const elTop = el.offsetTop;
+  const elHeight = el.offsetHeight;
+  
+  let currentScroll = parseFloat(list.dataset.targetScroll);
+  if (isNaN(currentScroll)) currentScroll = list.scrollTop;
+  
+  const listHeight = list.clientHeight;
+  let targetScroll = currentScroll;
+  const padding = 60;
+
+  if (elTop < currentScroll + padding) {
+    targetScroll = Math.max(0, elTop - padding);
+  } else if (elTop + elHeight > currentScroll + listHeight - padding) {
+    targetScroll = elTop + elHeight - listHeight + padding;
+  }
+
+  if (targetScroll !== currentScroll) {
+    list.dataset.targetScroll = targetScroll;
+    scroller.scrollTo(list, null, targetScroll);
+  }
 }
 
 async function openLibraryFile(item) {
@@ -481,14 +555,14 @@ function scrollToRow(el) {
   if (!Number.isNaN(rowIdx) && rowIdx === lastRowScrollIndex) return;
   lastRowScrollIndex = Number.isNaN(rowIdx) ? null : rowIdx;
   const targetScroll = rowEl.offsetTop - 16;
-  content.scrollTo({ top: targetScroll, behavior: 'smooth' });
+  scroller.scrollTo(content, null, targetScroll);
 }
 
 function scrollIntoRow(el) {
   const scroll = el.closest('.row-scroll');
   if (!scroll) return;
   
-  const padding = 42;
+  const padding = 80; // expose more of the next item
   const elLeft = el.offsetLeft;
   const elWidth = el.offsetWidth;
   
@@ -499,14 +573,14 @@ function scrollIntoRow(el) {
   let targetScroll = currentScroll;
 
   if (elLeft < currentScroll + padding) {
-    targetScroll = elLeft - padding;
+    targetScroll = Math.max(0, elLeft - padding);
   } else if (elLeft + elWidth > currentScroll + scrollWidth - padding) {
     targetScroll = elLeft + elWidth - scrollWidth + padding;
   }
 
   if (targetScroll !== currentScroll) {
     scroll.dataset.targetScroll = targetScroll;
-    scroll.scrollTo({ left: targetScroll, behavior: 'smooth' });
+    scroller.scrollTo(scroll, targetScroll, null);
   }
 }
 
@@ -516,18 +590,6 @@ function clamp(v, min, max) {
 
 function totalContentRows() {
   return ROWS.length;
-}
-
-const NAV_THROTTLE_MS = 250; // Force a strict minimum delay between movements
-
-function scheduleNav(key) {
-  const now = performance.now();
-  if (now - navLastTime < NAV_THROTTLE_MS) {
-    // Completely ignore key events that come in too fast during a hold
-    return;
-  }
-  navLastTime = now;
-  processNavKey(key);
 }
 
 function processNavKey(key) {
@@ -624,7 +686,14 @@ function handleKey(e) {
   const key = e.key;
   if (!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'].includes(key)) return;
   e.preventDefault();
-  scheduleNav(key);
+  
+  const now = performance.now();
+  // Very fast discrete clicks allowed, but throttle continuous holds
+  const throttle = e.repeat ? 180 : 25; 
+  if (now - navLastTime < throttle) return;
+  
+  navLastTime = now;
+  processNavKey(key);
 }
 
 document.addEventListener('keydown', handleKey);
