@@ -122,6 +122,8 @@ body {
   height: calc(100vh - 84px);
   overflow-y: auto;
   scrollbar-width: none;
+  will-change: scroll-position;
+  transform: translateZ(0);
 }
 
 #library-list::-webkit-scrollbar { display: none; }
@@ -302,6 +304,8 @@ body {
   scrollbar-width: none;
   clip-path: inset(-15px -0px -15px -0px);
   position: relative;
+  will-change: scroll-position;
+  transform: translateZ(0);
 }
 
 .row-scroll::-webkit-scrollbar { display: none; }

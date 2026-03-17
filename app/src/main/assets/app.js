@@ -35,6 +35,7 @@ class SmoothScroller {
   constructor() {
     this.targets = new Map();
     this.running = false;
+    this.lastTime = 0;
   }
   
   scrollTo(el, targetX, targetY) {
@@ -54,21 +55,26 @@ class SmoothScroller {
     
     if (!this.running) {
       this.running = true;
-      requestAnimationFrame(() => this.tick());
+      this.lastTime = performance.now();
+      requestAnimationFrame((time) => this.tick(time));
     }
   }
   
-  tick() {
+  tick(time) {
     let active = false;
+    const dt = Math.min(time - this.lastTime, 50); // Cap delta to 50ms to prevent huge jumps on lag spikes
+    this.lastTime = time;
+
+    // Time-independent lerp: ~0.015 multiplier at 60fps yields roughly the old 0.22 factor
+    const lerpFactor = 1 - Math.exp(-0.015 * dt);
+
     this.targets.forEach((state, el) => {
       const dx = state.tx - state.x;
       const dy = state.ty - state.y;
       
-      const lerp = 0.22; // Snappy but smooth
-      
       if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-        state.x += dx * lerp;
-        state.y += dy * lerp;
+        state.x += dx * lerpFactor;
+        state.y += dy * lerpFactor;
         el.scrollLeft = state.x;
         el.scrollTop = state.y;
         active = true;
@@ -80,7 +86,7 @@ class SmoothScroller {
     });
     
     if (active) {
-      requestAnimationFrame(() => this.tick());
+      requestAnimationFrame((t) => this.tick(t));
     } else {
       this.running = false;
     }
@@ -554,7 +560,13 @@ function scrollToRow(el) {
   const rowIdx = Number(rowEl.dataset.rowIndex);
   if (!Number.isNaN(rowIdx) && rowIdx === lastRowScrollIndex) return;
   lastRowScrollIndex = Number.isNaN(rowIdx) ? null : rowIdx;
-  const targetScroll = rowEl.offsetTop - 16;
+
+  // Cache offsetTop to avoid future layout reads
+  if (!rowEl.dataset.cachedOffsetTop) {
+    rowEl.dataset.cachedOffsetTop = rowEl.offsetTop;
+  }
+  
+  const targetScroll = Number(rowEl.dataset.cachedOffsetTop) - 16;
   scroller.scrollTo(content, null, targetScroll);
 }
 
@@ -562,14 +574,24 @@ function scrollIntoRow(el) {
   const scroll = el.closest('.row-scroll');
   if (!scroll) return;
   
-  const padding = 80; // expose more of the next item
-  const elLeft = el.offsetLeft;
-  const elWidth = el.offsetWidth;
+  // Mathematical positioning to avoid layout reads (el.offsetLeft, el.offsetWidth, scroll.clientWidth)
+  const colIdx = Number(el.dataset.col) || 0;
+  const cardWidth = 120;
+  const cardGap = 8;
+  const rowPaddingLeft = 42;
+  
+  const elLeft = rowPaddingLeft + (colIdx * (cardWidth + cardGap));
+  const elWidth = cardWidth;
+  const padding = 80; 
+  
+  // Hardcode visible width assuming 1080p / 720p scaled to CSS pixels.
+  // Using window.innerWidth once is much cheaper than reading clientWidth repeatedly.
+  if (!window.cachedInnerWidth) window.cachedInnerWidth = window.innerWidth;
+  const scrollWidth = window.cachedInnerWidth;
   
   let currentScroll = parseFloat(scroll.dataset.targetScroll);
   if (isNaN(currentScroll)) currentScroll = scroll.scrollLeft;
   
-  const scrollWidth = scroll.clientWidth;
   let targetScroll = currentScroll;
 
   if (elLeft < currentScroll + padding) {
