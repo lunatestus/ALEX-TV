@@ -27,6 +27,8 @@ body {
 /* Disable mouse cursor for TV feel — remove if testing on desktop */
 /* body { cursor: none; } */
 
+.hidden { display: none; }
+
 /* ── Nav Pills ── */
 #nav-bar {
   position: fixed;
@@ -88,6 +90,83 @@ body {
 
 #coming-soon.hidden {
   display: none;
+}
+
+/* ── Library ── */
+#library {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  padding: 120px 56px 40px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+#library-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+#library-path {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+#library-list {
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+#library-list::-webkit-scrollbar { display: none; }
+
+.library-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: rgba(255,255,255,0.03);
+  margin-bottom: 8px;
+  outline: none;
+}
+
+.library-name {
+  font-size: 1rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-meta {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.library-item.focusable:focus {
+  transform: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+  background: rgba(255,255,255,0.08);
+}
+
+.library-empty {
+  padding: 14px 16px;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+}
+
+#library-status {
+  position: fixed;
+  left: 56px;
+  bottom: 24px;
+  font-size: 0.9rem;
+  color: var(--text-dim);
 }
 
 /* ── Hero ── */

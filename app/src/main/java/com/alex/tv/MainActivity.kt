@@ -9,14 +9,21 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.webkit.WebChromeClient
+import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
+import org.json.JSONObject
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private val bridgeExecutor = Executors.newSingleThreadExecutor()
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,10 +53,13 @@ class MainActivity : AppCompatActivity() {
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             settings.useWideViewPort = true
             settings.loadWithOverviewMode = true
+            settings.allowFileAccessFromFileURLs = true
+            settings.allowUniversalAccessFromFileURLs = true
 
             webViewClient = WebViewClient()
             webChromeClient = WebChromeClient()
 
+            addJavascriptInterface(NativeBridge(), "AndroidBridge")
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
             setBackgroundColor(0xFF000000.toInt())
         }
@@ -88,6 +98,43 @@ class MainActivity : AppCompatActivity() {
             webView.goBack()
         } else {
             super.onBackPressed()
+        }
+    }
+
+    private inner class NativeBridge {
+        @JavascriptInterface
+        fun fetchJson(url: String, callbackId: String) {
+            bridgeExecutor.execute {
+                val (ok, payload) = try {
+                    true to fetchUrl(url)
+                } catch (e: Exception) {
+                    false to (e.message ?: "Network error")
+                }
+                val js = "window.__nativeFetchResolve(" +
+                    "${JSONObject.quote(callbackId)}, ${if (ok) "true" else "false"}, ${JSONObject.quote(payload)}" +
+                    ");"
+                webView.post {
+                    webView.evaluateJavascript(js, null)
+                }
+            }
+        }
+    }
+
+    private fun fetchUrl(url: String): String {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 10_000
+            readTimeout = 15_000
+            instanceFollowRedirects = true
+            requestMethod = "GET"
+        }
+        return try {
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val body = stream.bufferedReader().use { it.readText() }
+            if (code !in 200..299) throw IOException("HTTP $code")
+            body
+        } finally {
+            conn.disconnect()
         }
     }
 }

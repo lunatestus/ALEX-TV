@@ -3,6 +3,8 @@ const API_KEY = '8bd45cfb804f84ce85fa6accd833d6a1';
 const BASE    = 'https://api.themoviedb.org/3';
 const IMG     = 'https://image.tmdb.org/t/p';
 const BACKDROP_SIZE = 'w1280';
+const TUNNEL_ROOT = 'https://lunatestus003--vibe-backend-tunnel.modal.run';
+const LIBRARY_ROOT_PATH = '/media';
 
 // ── Endpoints ──
 const ROWS = [
@@ -22,6 +24,8 @@ const nav = {
   cols: [],         // remember last column per row
   rows: [],         // will hold references to focusable arrays per row
   movies: [],       // parallel array: movies[rowIdx][colIdx] = movie data
+  libraryIndex: 0,
+  libraryItems: [],
 };
 
 const NAV_MIN_INTERVAL_MS = 160;
@@ -30,7 +34,56 @@ let navQueuedKey = null;
 let navQueueTimer = null;
 let lastRowScrollIndex = null;
 
+const libraryState = {
+  tunnelUrl: null,
+  path: LIBRARY_ROOT_PATH,
+  items: [],
+  loading: false,
+  hasLoaded: false,
+};
+
 // ── Helpers ──
+const nativeBridge = typeof window !== 'undefined' ? window.AndroidBridge : null;
+const nativeCallbacks = {};
+let nativeCbSeq = 0;
+
+function nativeFetchJson(url) {
+  return new Promise((resolve, reject) => {
+    const id = `cb_${Date.now()}_${nativeCbSeq++}`;
+    nativeCallbacks[id] = { resolve, reject };
+    if (!nativeBridge || typeof nativeBridge.fetchJson !== 'function') {
+      delete nativeCallbacks[id];
+      reject(new Error('Native bridge unavailable'));
+      return;
+    }
+    nativeBridge.fetchJson(url, id);
+  });
+}
+
+window.__nativeFetchResolve = function(id, ok, payload) {
+  const cb = nativeCallbacks[id];
+  if (!cb) return;
+  delete nativeCallbacks[id];
+  if (ok) {
+    try {
+      cb.resolve(JSON.parse(payload));
+    } catch (err) {
+      cb.reject(err);
+    }
+  } else {
+    cb.reject(new Error(payload || 'Native fetch failed'));
+  }
+};
+
+async function fetchJson(url) {
+  if (nativeBridge && typeof nativeBridge.fetchJson === 'function') {
+    return nativeFetchJson(url);
+  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 function tmdbFetch(path) {
   return fetch(`${BASE}${path}`).then(r => r.json());
 }
@@ -45,6 +98,19 @@ function backdropURL(path, size = BACKDROP_SIZE) {
 
 function year(dateStr) {
   return dateStr ? dateStr.split('-')[0] : '';
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = bytes;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit++;
+  }
+  const digits = size >= 10 || unit === 0 ? 0 : 1;
+  return `${size.toFixed(digits)} ${units[unit]}`;
 }
 
 // ── Hero ──
@@ -82,6 +148,142 @@ function setHero(movie) {
       backdrop.className = 'fade-in';
     }, 220);
   }, 160);
+}
+
+// ── Library ──
+function setLibraryStatus(text) {
+  const el = document.getElementById('library-status');
+  if (!el) return;
+  if (!text) {
+    el.textContent = '';
+    el.classList.add('hidden');
+    return;
+  }
+  el.textContent = text;
+  el.classList.remove('hidden');
+}
+
+async function resolveTunnelUrl() {
+  const data = await fetchJson(TUNNEL_ROOT);
+  if (!data || !data.url) throw new Error('Tunnel URL missing');
+  if (data.status && data.status !== 'running') {
+    throw new Error(`Tunnel status: ${data.status}`);
+  }
+  return data.url;
+}
+
+async function loadLibrary(path) {
+  if (libraryState.loading) return;
+  libraryState.loading = true;
+  setLibraryStatus('Loading library...');
+  try {
+    if (!libraryState.tunnelUrl) {
+      libraryState.tunnelUrl = await resolveTunnelUrl();
+    }
+    const listUrl = `${libraryState.tunnelUrl}/list?path=${encodeURIComponent(path)}`;
+    const data = await fetchJson(listUrl);
+    libraryState.path = data.path || path;
+    libraryState.items = Array.isArray(data.items) ? data.items : [];
+    libraryState.hasLoaded = true;
+    renderLibrary();
+    setLibraryStatus(libraryState.items.length ? '' : 'Empty folder');
+  } catch (err) {
+    setLibraryStatus('Failed to load library');
+  } finally {
+    libraryState.loading = false;
+  }
+}
+
+function renderLibrary() {
+  const list = document.getElementById('library-list');
+  const pathEl = document.getElementById('library-path');
+  if (!list || !pathEl) return;
+
+  pathEl.textContent = libraryState.path || '/';
+  list.innerHTML = '';
+
+  const items = libraryState.items || [];
+  if (!items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'library-empty';
+    empty.textContent = 'No items found';
+    list.appendChild(empty);
+    nav.libraryItems = [];
+    nav.libraryIndex = 0;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  items.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'library-item focusable';
+    row.tabIndex = -1;
+    row.dataset.index = String(i);
+    row.dataset.path = item.path || '';
+    row.dataset.type = item.type || '';
+
+    const name = document.createElement('div');
+    name.className = 'library-name';
+    name.textContent = item.name || item.path || 'Untitled';
+
+    const meta = document.createElement('div');
+    meta.className = 'library-meta';
+    const typeLabel = item.type === 'folder' ? 'Folder' : 'File';
+    const sizeLabel = item.type === 'file' ? formatBytes(item.size || 0) : '';
+    meta.textContent = sizeLabel ? `${typeLabel} • ${sizeLabel}` : typeLabel;
+
+    row.appendChild(name);
+    row.appendChild(meta);
+    frag.appendChild(row);
+  });
+  list.appendChild(frag);
+
+  nav.libraryItems = Array.from(list.querySelectorAll('.library-item'));
+  nav.libraryIndex = clamp(nav.libraryIndex, 0, nav.libraryItems.length - 1);
+  if (currentPage === 'library' && nav.area === 'library') {
+    focusCurrent();
+  }
+}
+
+function scrollLibraryIntoView(el) {
+  if (!el) return;
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+async function openLibraryFile(item) {
+  if (!item || !item.path) return;
+  try {
+    if (!libraryState.tunnelUrl) {
+      libraryState.tunnelUrl = await resolveTunnelUrl();
+    }
+    setLibraryStatus('Opening file...');
+    const url = `${libraryState.tunnelUrl}/download-url?path=${encodeURIComponent(item.path)}`;
+    const data = await fetchJson(url);
+    if (data && data.url) {
+      window.location.href = data.url;
+    } else {
+      throw new Error('Missing stream URL');
+    }
+  } catch (err) {
+    setLibraryStatus('Unable to open file');
+  }
+}
+
+function handleLibraryEnter() {
+  const item = (libraryState.items || [])[nav.libraryIndex];
+  if (!item) return;
+  if (item.type === 'folder') {
+    nav.libraryIndex = 0;
+    loadLibrary(item.path);
+  } else {
+    openLibraryFile(item);
+  }
+}
+
+function ensureLibraryLoaded() {
+  if (!libraryState.hasLoaded && !libraryState.loading) {
+    loadLibrary(libraryState.path || LIBRARY_ROOT_PATH);
+  }
 }
 
 // ── Cards ──
@@ -159,6 +361,7 @@ function switchPage(page) {
   const overlay = document.getElementById('coming-soon');
   const hero = document.getElementById('hero');
   const content = document.getElementById('content');
+  const library = document.getElementById('library');
 
   navPills.forEach(p => p.classList.toggle('active', p.dataset.page === page));
   currentPage = page;
@@ -167,10 +370,18 @@ function switchPage(page) {
     overlay.classList.add('hidden');
     hero.style.display = '';
     content.style.display = '';
+    if (library) library.classList.add('hidden');
+  } else if (page === 'library') {
+    overlay.classList.add('hidden');
+    hero.style.display = 'none';
+    content.style.display = 'none';
+    if (library) library.classList.remove('hidden');
+    ensureLibraryLoaded();
   } else {
     overlay.classList.remove('hidden');
     hero.style.display = 'none';
     content.style.display = 'none';
+    if (library) library.classList.add('hidden');
   }
 }
 
@@ -183,6 +394,16 @@ function focusCurrent() {
     if (el) {
       el.focus({ preventScroll: true });
       switchPage(el.dataset.page);
+    }
+    return;
+  }
+  if (nav.area === 'library') {
+    const items = nav.libraryItems || [];
+    nav.libraryIndex = clamp(nav.libraryIndex, 0, items.length - 1);
+    const el = items[nav.libraryIndex];
+    if (el) {
+      el.focus({ preventScroll: true });
+      scrollLibraryIntoView(el);
     }
     return;
   }
@@ -258,6 +479,34 @@ function scheduleNav(key) {
 function processNavKey(key) {
   const prevArea = nav.area;
   const prevCol = nav.col;
+  const prevLib = nav.libraryIndex;
+
+  if (key === 'Enter') {
+    if (nav.area === 'library') handleLibraryEnter();
+    return;
+  }
+
+  if (nav.area === 'library') {
+    switch (key) {
+      case 'ArrowDown':
+        nav.libraryIndex = clamp(nav.libraryIndex + 1, 0, (nav.libraryItems || []).length - 1);
+        break;
+      case 'ArrowUp':
+        if (nav.libraryIndex === 0) {
+          nav.area = 'nav';
+          nav.col = navPills.findIndex(p => p.dataset.page === currentPage);
+        } else {
+          nav.libraryIndex = Math.max(0, nav.libraryIndex - 1);
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (nav.area === prevArea && nav.libraryIndex === prevLib) return;
+    focusCurrent();
+    return;
+  }
 
   switch (key) {
     case 'ArrowRight':
@@ -278,6 +527,9 @@ function processNavKey(key) {
         if (currentPage === 'home') {
           nav.area = 0;
           nav.col = nav.cols[0] ?? 0;
+        } else if (currentPage === 'library') {
+          nav.area = 'library';
+          nav.libraryIndex = 0;
         }
       } else if (nav.area < totalContentRows() - 1) {
         nav.area++;
