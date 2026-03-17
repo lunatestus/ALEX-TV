@@ -174,13 +174,6 @@ body {
   font-size: 0.95rem;
 }
 
-#library-status {
-  position: fixed;
-  left: 56px;
-  bottom: 24px;
-  font-size: 0.9rem;
-  color: var(--text-dim);
-}
 
 /* ── Hero ── */
 #hero {

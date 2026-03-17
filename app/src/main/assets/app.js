@@ -158,15 +158,8 @@ function setHero(movie) {
 
 // ── Library ──
 function setLibraryStatus(text) {
-  const el = document.getElementById('library-status');
-  if (!el) return;
-  if (!text) {
-    el.textContent = '';
-    el.classList.add('hidden');
-    return;
-  }
-  el.textContent = text;
-  el.classList.remove('hidden');
+  // Status messages are intentionally hidden in the UI.
+  return;
 }
 
 function getParentPath(path) {

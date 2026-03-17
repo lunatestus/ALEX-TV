@@ -13,6 +13,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import org.json.JSONObject
 import java.io.IOException
@@ -68,9 +69,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(webView)
         webView.loadUrl("file:///android_asset/index.html")
 
-        onBackPressedDispatcher.addCallback(this) {
-            handleBackPress()
-        }
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    handleBackPress()
+                }
+            }
+        )
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
