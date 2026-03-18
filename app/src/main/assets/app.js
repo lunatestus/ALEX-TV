@@ -116,6 +116,7 @@ const libraryState = {
   tunnelUrl: null,
   path: LIBRARY_ROOT_PATH,
   items: [],
+  visibleItems: [],
   loading: false,
   hasLoaded: false,
   hasError: false,
@@ -437,13 +438,15 @@ async function loadLibrary(path) {
     const data = await fetchJson(listUrl);
     libraryState.path = data.path || path;
     libraryState.items = Array.isArray(data.items) ? data.items : [];
+    libraryState.visibleItems = [];
     libraryState.hasLoaded = true;
     libraryState.hasError = false;
     updateNavState();
     renderLibrary();
-    setLibraryStatus(libraryState.items.length ? '' : 'Empty folder');
+    setLibraryStatus(libraryState.visibleItems.length ? '' : 'Empty folder');
   } catch (err) {
     libraryState.items = [];
+    libraryState.visibleItems = [];
     libraryState.hasLoaded = false;
     libraryState.hasError = true;
     renderLibrary();
@@ -463,6 +466,7 @@ function renderLibrary() {
     if (item.type === 'file') return isVideoFile(item.name || item.path || '');
     return false;
   });
+  libraryState.visibleItems = items;
   if (!items.length) {
     const empty = document.createElement('div');
     empty.className = 'library-empty';
@@ -560,7 +564,7 @@ async function openLibraryFile(item) {
 }
 
 function handleLibraryEnter() {
-  const item = (libraryState.items || [])[nav.libraryIndex];
+  const item = (libraryState.visibleItems || [])[nav.libraryIndex];
   if (!item) return;
   if (item.type === 'folder') {
     nav.libraryIndex = 0;
