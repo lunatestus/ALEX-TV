@@ -55,13 +55,21 @@ class SmoothScroller {
     }
   }
   
+  isScrolling(el) {
+    if (!el) return false;
+    const state = this.targets.get(el);
+    if (!state) return false;
+    const dx = Math.abs(state.tx - state.x);
+    const dy = Math.abs(state.ty - state.y);
+    return dx > 2 || dy > 2;
+  }
+  
   tick(time) {
     let active = false;
-    const dt = Math.min(time - this.lastTime, 50); // Cap delta to 50ms to prevent huge jumps on lag spikes
+    const dt = Math.min(time - this.lastTime, 50);
     this.lastTime = time;
 
-    // Time-independent lerp: ~0.015 multiplier at 60fps yields roughly the old 0.22 factor
-    const lerpFactor = 1 - Math.exp(-0.015 * dt);
+    const lerpFactor = 1 - Math.exp(-0.018 * dt);
 
     this.targets.forEach((state, el) => {
       const dx = state.tx - state.x;
@@ -183,7 +191,6 @@ let heroCurrentId = null;
 function setHero(movie) {
   const backdrop = document.getElementById('hero-backdrop');
 
-  // Minimal transition: debounce rapid focus moves and only crossfade backdrop
   heroPending = movie;
   clearTimeout(heroTimer);
   clearTimeout(heroFadeTimer);
@@ -197,7 +204,6 @@ function setHero(movie) {
     if (nextId && nextId === heroCurrentId) return;
     heroCurrentId = nextId;
 
-    // Fade out backdrop only
     backdrop.className = 'fade-out';
 
     heroFadeTimer = setTimeout(() => {
@@ -206,10 +212,9 @@ function setHero(movie) {
       document.getElementById('hero-year').textContent = year(next.release_date || next.first_air_date);
       document.getElementById('hero-overview').textContent = next.overview;
 
-      // Fade in backdrop
       backdrop.className = 'fade-in';
     }, 220);
-  }, 160);
+  }, 400);
 }
 
 // ── Library ──
@@ -705,8 +710,34 @@ function handleKey(e) {
   e.preventDefault();
   
   const now = performance.now();
-  // Very fast discrete clicks allowed, but throttle continuous holds
-  const throttle = e.repeat ? 180 : 25; 
+  
+  // Block navigation if horizontal scroll is still animating
+  if (key === 'ArrowLeft' || key === 'ArrowRight') {
+    const currentRow = nav.rows[nav.area];
+    if (currentRow && currentRow.length > 0) {
+      const scroll = currentRow[0].closest('.row-scroll');
+      if (scroll && scroller.isScrolling(scroll)) {
+        return; // Wait for scroll to finish
+      }
+    }
+  }
+  
+  // Block navigation if vertical scroll is still animating
+  if (key === 'ArrowUp' || key === 'ArrowDown') {
+    const content = document.getElementById('content');
+    if (content && scroller.isScrolling(content)) {
+      return; // Wait for scroll to finish
+    }
+  }
+  
+  // Adaptive throttle: faster single taps, slower holds
+  let throttle;
+  if (e.repeat) {
+    throttle = 120; // Slower on hold to match scroll animation
+  } else {
+    throttle = 20; // Fast single taps
+  }
+  
   if (now - navLastTime < throttle) return;
   
   navLastTime = now;

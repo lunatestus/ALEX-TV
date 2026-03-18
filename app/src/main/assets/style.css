@@ -53,7 +53,7 @@ body {
   outline: none;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: transform 0.12s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.12s cubic-bezier(0.25, 0.1, 0.25, 1), background 0.12s cubic-bezier(0.25, 0.1, 0.25, 1), color 0.12s cubic-bezier(0.25, 0.1, 0.25, 1);
   will-change: transform, box-shadow, background, color;
 }
 
@@ -306,6 +306,7 @@ body {
   position: relative;
   will-change: scroll-position;
   transform: translateZ(0);
+  scroll-behavior: auto;
 }
 
 .row-scroll::-webkit-scrollbar { display: none; }
@@ -317,9 +318,10 @@ body {
   overflow: hidden;
   position: relative;
   outline: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.18s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.18s cubic-bezier(0.25, 0.1, 0.25, 1);
   background: var(--card);
   will-change: transform, box-shadow;
+  contain: layout style paint;
 }
 
 .card-poster {
