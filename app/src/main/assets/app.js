@@ -69,7 +69,7 @@ class SmoothScroller {
     const dt = Math.min(time - this.lastTime, 50);
     this.lastTime = time;
 
-    const lerpFactor = 1 - Math.exp(-0.018 * dt);
+    const lerpFactor = 1 - Math.exp(-0.032 * dt);
 
     this.targets.forEach((state, el) => {
       const dx = state.tx - state.x;
@@ -747,25 +747,6 @@ function handleKey(e) {
   e.preventDefault();
   
   const now = performance.now();
-  
-  // Block navigation if horizontal scroll is still animating
-  if (key === 'ArrowLeft' || key === 'ArrowRight') {
-    const currentRow = nav.rows[nav.area];
-    if (currentRow && currentRow.length > 0) {
-      const scroll = currentRow[0].closest('.row-scroll');
-      if (scroll && scroller.isScrolling(scroll)) {
-        return; // Wait for scroll to finish
-      }
-    }
-  }
-  
-  // Block navigation if vertical scroll is still animating
-  if (key === 'ArrowUp' || key === 'ArrowDown') {
-    const content = document.getElementById('content');
-    if (content && scroller.isScrolling(content)) {
-      return; // Wait for scroll to finish
-    }
-  }
   
   // Adaptive throttle: faster single taps, slower holds
   let throttle;
