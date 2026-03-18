@@ -12,6 +12,11 @@ const TMDB_CACHE_TTL_DEFAULT = 3 * 60 * 60 * 1000; // 3 hours
 const TMDB_CACHE_TTL_TRENDING = 60 * 60 * 1000;    // 1 hour
 const TMDB_CACHE_TTL_POPULAR = 6 * 60 * 60 * 1000; // 6 hours
 const TMDB_CACHE_TTL_GENRES = 24 * 60 * 60 * 1000; // 24 hours
+const VIDEO_EXTS = new Set([
+  'mp4', 'mkv', 'avi', 'mov', 'm4v', 'webm',
+  'mpg', 'mpeg', 'flv', 'ts', 'm2ts', '3gp',
+  '3gpp', 'ogm', 'ogv', 'wmv'
+]);
 
 // ── Endpoints ──
 const ROWS = [
@@ -286,6 +291,15 @@ function formatBytes(bytes) {
   return `${size.toFixed(digits)} ${units[unit]}`;
 }
 
+function isVideoFile(pathOrName) {
+  if (!pathOrName) return false;
+  const lower = String(pathOrName).toLowerCase();
+  const dot = lower.lastIndexOf('.');
+  if (dot <= 0 || dot === lower.length - 1) return false;
+  const ext = lower.slice(dot + 1);
+  return VIDEO_EXTS.has(ext);
+}
+
 // ── Hero ──
 let heroTimer = null;
 let heroFadeTimer = null;
@@ -425,7 +439,11 @@ function renderLibrary() {
   if (!list) return;
   list.innerHTML = '';
 
-  const items = libraryState.items || [];
+  const items = (libraryState.items || []).filter((item) => {
+    if (item.type === 'folder') return true;
+    if (item.type === 'file') return isVideoFile(item.name || item.path || '');
+    return false;
+  });
   if (!items.length) {
     const empty = document.createElement('div');
     empty.className = 'library-empty';
