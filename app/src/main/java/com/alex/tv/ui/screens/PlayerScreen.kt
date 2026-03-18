@@ -895,6 +895,16 @@ private data class TrackOption(
     val isAuto: Boolean = false
 )
 
+private fun trackLabel(format: Format, index: Int, trackType: Int): String {
+    val language = format.language?.trim().orEmpty()
+    if (language.isNotBlank() && language.lowercase() != "und") {
+        return language.lowercase()
+    }
+    val label = format.label?.trim().orEmpty()
+    if (label.isNotBlank()) return label
+    return if (trackType == C.TRACK_TYPE_TEXT) "Subtitle ${index + 1}" else "Track ${index + 1}"
+}
+
 @Suppress("DEPRECATION")
 private fun resetTrackOverrides(trackSelector: DefaultTrackSelector) {
     trackSelector.parameters = trackSelector.parameters.buildUpon()
@@ -959,7 +969,7 @@ private fun TrackSelectionMenu(
             val trackGroup = group.mediaTrackGroup
             for (i in 0 until trackGroup.length) {
                 val format = trackGroup.getFormat(i)
-                val label = format.label ?: format.language ?: "Track ${i + 1}"
+                val label = trackLabel(format, i, trackType)
                 val groupIndex = trackGroups?.let { findGroupIndex(it, trackGroup) }
                 val isSupported = group.isTrackSupported(i) && groupIndex != null
                 built.add(
