@@ -234,7 +234,7 @@ body {
   position: absolute;
   bottom: 45vh;
   left: 42px;
-  max-width: 412px;
+  max-width: 480px;
   z-index: 2;
 }
 
@@ -250,12 +250,42 @@ body {
   margin-bottom: 10px;
 }
 
-#hero-year {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text);
-  display: block;
-  margin-bottom: 8px;
+#hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.hero-year-badge {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+}
+
+.hero-rating-badge {
+  background: rgba(255, 210, 60, 0.18);
+  border: 1px solid rgba(255, 210, 60, 0.4);
+  color: #ffd23c;
+}
+
+.hero-genre-badge {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.75);
 }
 
 #hero-overview {

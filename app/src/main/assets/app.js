@@ -188,6 +188,29 @@ let heroTimer = null;
 let heroFadeTimer = null;
 let heroPending = null;
 let heroCurrentId = null;
+let genreMap = {};
+
+function renderHeroMeta(movie) {
+  const meta = document.getElementById('hero-meta');
+  if (!meta) return;
+  const parts = [];
+
+  const y = year(movie.release_date || movie.first_air_date);
+  if (y) parts.push(`<span class="hero-badge hero-year-badge">${y}</span>`);
+
+  const rating = movie.vote_average ? Math.round(movie.vote_average * 10) / 10 : null;
+  if (rating) parts.push(`<span class="hero-badge hero-rating-badge">★ ${rating}</span>`);
+
+  const genres = (movie.genre_ids || []).slice(0, 3)
+    .map(id => genreMap[id])
+    .filter(Boolean)
+    .map(g => `<span class="hero-badge hero-genre-badge">${g}</span>`)
+    .join('');
+  if (genres) parts.push(genres);
+
+  meta.innerHTML = parts.join('');
+}
+
 function setHero(movie) {
   const backdrop = document.getElementById('hero-backdrop');
 
@@ -209,7 +232,7 @@ function setHero(movie) {
     heroFadeTimer = setTimeout(() => {
       backdrop.style.backgroundImage = `url(${backdropURL(next.backdrop_path)})`;
       document.getElementById('hero-title').textContent = next.title || next.name;
-      document.getElementById('hero-year').textContent = year(next.release_date || next.first_air_date);
+      renderHeroMeta(next);
       document.getElementById('hero-overview').textContent = next.overview;
 
       backdrop.className = 'fade-in';
@@ -461,8 +484,15 @@ function showSkeletons() {
 async function init() {
   showSkeletons();
 
-  // Fetch all rows in parallel
-  const results = await Promise.all(ROWS.map(r => tmdbFetch(r.url)));
+  // Fetch genres + all rows in parallel
+  const [genreData, ...results] = await Promise.all([
+    tmdbFetch(`/genre/movie/list?api_key=${API_KEY}`),
+    ...ROWS.map(r => tmdbFetch(r.url))
+  ]);
+
+  if (genreData && genreData.genres) {
+    genreData.genres.forEach(g => { genreMap[g.id] = g.name; });
+  }
 
   // Set hero from trending #1
   const heroMovie = results[0].results[0];
