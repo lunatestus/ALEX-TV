@@ -69,7 +69,7 @@ class SmoothScroller {
     const dt = Math.min(time - this.lastTime, 50);
     this.lastTime = time;
 
-    const lerpFactor = 1 - Math.exp(-0.032 * dt);
+    const lerpFactor = 1 - Math.exp(-0.025 * dt);
 
     this.targets.forEach((state, el) => {
       const dx = state.tx - state.x;
@@ -748,12 +748,12 @@ function handleKey(e) {
   
   const now = performance.now();
   
-  // Adaptive throttle: faster single taps, slower holds
+  // Adaptive throttle: faster single taps, slower holds to let scroll keep up
   let throttle;
   if (e.repeat) {
-    throttle = 120; // Slower on hold to match scroll animation
+    throttle = 160;
   } else {
-    throttle = 20; // Fast single taps
+    throttle = 30;
   }
   
   if (now - navLastTime < throttle) return;
