@@ -40,7 +40,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -123,9 +122,10 @@ fun PlayerScreen(
     val forwardFocusRequester = remember { FocusRequester() }
     val captionFocusRequester = remember { FocusRequester() }
     val audioFocusRequester = remember { FocusRequester() }
-    val settingsFocusRequester = remember { FocusRequester() }
     val screenFocusRequester = remember { FocusRequester() }
     var resumeOnStart by remember { mutableStateOf(false) }
+    var durationMs by remember { mutableLongStateOf(0L) }
+    var currentPositionMs by remember { mutableLongStateOf(0L) }
 
     BackHandler(enabled = isMenuOpen) {
         showCaptionMenu = false
@@ -263,6 +263,19 @@ fun PlayerScreen(
     LaunchedEffect(showControls, isMenuOpen) {
         if (showControls && !isMenuOpen) {
             playPauseFocusRequester.requestFocus() // Return focus to controls when shown
+        }
+    }
+
+    LaunchedEffect(exoPlayer, showControls) {
+        while (true) {
+            if (!showControls) {
+                delay(500)
+                continue
+            }
+            currentPositionMs = exoPlayer.currentPosition
+            val rawDuration = exoPlayer.duration
+            durationMs = if (rawDuration > 0 && rawDuration != C.TIME_UNSET) rawDuration else 0L
+            delay(250)
         }
     }
 
@@ -523,21 +536,17 @@ fun PlayerScreen(
                             focusProps = {
                                 up = seekbarFocusRequester
                                 left = captionFocusRequester
-                                right = settingsFocusRequester
+                                right = FocusRequester.Cancel
                             },
                             enabled = showControls && !isMenuOpen
                         )
                         Spacer(modifier = Modifier.width(12.dp))
-                        PlayerButton(
-                            icon = PlayerIcons.Settings, 
-                            onClick = { lastInteraction = System.currentTimeMillis() },
-                            modifier = Modifier.focusRequester(settingsFocusRequester),
-                            focusProps = {
-                                up = seekbarFocusRequester
-                                left = audioFocusRequester
-                                right = FocusRequester.Cancel
-                            },
-                            enabled = showControls && !isMenuOpen
+                        Text(
+                            text = "${if (durationMs > 0L) formatTime(currentPositionMs) else "--:--"} / ${formatTimeOrUnknown(durationMs)}",
+                            color = Color(0xCCFFFFFF),
+                            fontSize = 12.sp,
+                            fontFamily = DmSans,
+                            maxLines = 1
                         )
                     }
                 }
@@ -725,15 +734,6 @@ fun PlayerSeekBar(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                if (isDurationKnown) formatTime(currentPosition) else "--:--",
-                color = Color(0xCCFFFFFF),
-                fontSize = 12.sp,
-                fontFamily = DmSans,
-                maxLines = 1,
-                modifier = Modifier.width(56.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
             BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
@@ -766,16 +766,6 @@ fun PlayerSeekBar(
                         .background(Color.White)
                 )
             }
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                formatTimeOrUnknown(duration),
-                color = Color(0xCCFFFFFF),
-                fontSize = 12.sp,
-                fontFamily = DmSans,
-                maxLines = 1,
-                textAlign = TextAlign.End,
-                modifier = Modifier.width(56.dp)
-            )
         }
     }
 }
