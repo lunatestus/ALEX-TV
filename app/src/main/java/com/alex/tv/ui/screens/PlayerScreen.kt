@@ -6,6 +6,7 @@ import android.view.KeyEvent
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.graphics.Color as AndroidColor
+import android.util.TypedValue
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -373,6 +374,7 @@ fun PlayerScreen(
                     isFocusableInTouchMode = false
                     descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
                     subtitleView?.apply {
+                        setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                         setStyle(
                             CaptionStyleCompat(
                                 AndroidColor.WHITE,
