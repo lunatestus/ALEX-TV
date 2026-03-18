@@ -3,6 +3,7 @@ const API_KEY = '8bd45cfb804f84ce85fa6accd833d6a1';
 const BASE    = 'https://api.themoviedb.org/3';
 const IMG     = 'https://image.tmdb.org/t/p';
 const BACKDROP_SIZE = 'w1280';
+const LAUNCH_ROOT = 'https://lunatestus003--vibe-backend-launch.modal.run';
 const TUNNEL_ROOT = 'https://lunatestus003--vibe-backend-tunnel.modal.run';
 const LIBRARY_ROOT_PATH = '/media';
 const TMDB_CACHE_PREFIX = 'tmdb_cache_v1:';
@@ -398,12 +399,30 @@ window.__goHome = function() {
 };
 
 async function resolveTunnelUrl() {
-  const data = await fetchJson(TUNNEL_ROOT);
-  if (!data || !data.url) throw new Error('Tunnel URL missing');
-  if (data.status && data.status !== 'running') {
-    throw new Error(`Tunnel status: ${data.status}`);
+  // Wake the backend (ignore errors; it may already be running).
+  try {
+    await fetchJson(LAUNCH_ROOT);
+  } catch (err) {
+    // no-op
   }
-  return data.url;
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const maxAttempts = 25;
+
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const data = await fetchJson(TUNNEL_ROOT);
+      if (data && data.url) return data.url;
+      if (data && data.status && data.status !== 'running') {
+        // Keep polling; backend might still be starting.
+      }
+    } catch (err) {
+      // Tunnel returns 404 until ready; keep retrying.
+    }
+    await sleep(1000);
+  }
+
+  throw new Error('Tunnel URL missing');
 }
 
 async function loadLibrary(path) {
@@ -668,6 +687,8 @@ async function loadHomeContent(options = {}) {
 // ── Init ──
 async function init() {
   await loadHomeContent();
+  // Preload library in the background so it is ready when user opens it.
+  ensureLibraryLoaded();
 
   // Start focus on first content row
   nav.area = 0;
