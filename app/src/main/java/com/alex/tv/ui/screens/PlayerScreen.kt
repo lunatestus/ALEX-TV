@@ -356,7 +356,7 @@ fun PlayerScreen(
                     isFocusableInTouchMode = false
                     descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
                     subtitleView?.apply {
-                        setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                        setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                         setStyle(
                             CaptionStyleCompat(
                                 AndroidColor.WHITE,
