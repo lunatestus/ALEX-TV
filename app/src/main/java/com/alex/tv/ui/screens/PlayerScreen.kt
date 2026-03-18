@@ -25,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithCache
@@ -34,10 +35,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -470,7 +469,7 @@ fun PlayerScreen(
 }
 
 @Composable
-private fun PlayerControlsOverlay(
+private fun BoxScope.PlayerControlsOverlay(
     exoPlayer: ExoPlayer,
     title: String,
     isPlaying: Boolean,
@@ -514,10 +513,7 @@ private fun PlayerControlsOverlay(
             .align(Alignment.BottomStart)
             .fillMaxWidth()
             .height(192.dp)
-            .graphicsLayer {
-                alpha = controlsAlpha
-                compositingStrategy = CompositingStrategy.ModulateAlpha
-            }
+            .alpha(controlsAlpha)
             .playerVerticalScrim(bottomScrimColors)
     )
 
@@ -544,10 +540,7 @@ private fun PlayerControlsOverlay(
             .align(Alignment.TopStart)
             .fillMaxWidth()
             .height(72.dp)
-            .graphicsLayer {
-                alpha = controlsAlpha
-                compositingStrategy = CompositingStrategy.ModulateAlpha
-            }
+            .alpha(controlsAlpha)
             .playerVerticalScrim(topScrimColors)
     )
 
@@ -563,15 +556,12 @@ private fun PlayerControlsOverlay(
             .align(Alignment.TopStart)
             .padding(horizontal = 24.dp, vertical = 16.dp)
             .fillMaxWidth()
-            .graphicsLayer {
-                alpha = controlsAlpha
-                compositingStrategy = CompositingStrategy.ModulateAlpha
-            }
+            .alpha(controlsAlpha)
     )
 }
 
 @Composable
-private fun PlayerBottomControls(
+private fun BoxScope.PlayerBottomControls(
     exoPlayer: ExoPlayer,
     isPlaying: Boolean,
     controlsAlpha: Float,
@@ -619,10 +609,7 @@ private fun PlayerBottomControls(
         modifier = Modifier
             .align(Alignment.BottomStart)
             .fillMaxWidth()
-            .graphicsLayer {
-                alpha = controlsAlpha
-                compositingStrategy = CompositingStrategy.ModulateAlpha
-            }
+            .alpha(controlsAlpha)
             .padding(horizontal = 24.dp, vertical = 16.dp)
     ) {
         PlayerSeekBar(
