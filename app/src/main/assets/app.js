@@ -198,7 +198,7 @@ function renderHeroMeta(movie) {
   const y = year(movie.release_date || movie.first_air_date);
   if (y) parts.push(`<span class="hero-badge hero-year-badge">${y}</span>`);
 
-  const rating = movie.vote_average ? Math.round(movie.vote_average * 10) / 10 : null;
+  const rating = (movie.vote_average && movie.vote_count >= 50) ? Math.round(movie.vote_average * 10) / 10 : null;
   if (rating) parts.push(`<span class="hero-badge hero-rating-badge">★ ${rating}</span>`);
 
   const genres = (movie.genre_ids || []).slice(0, 3)
