@@ -16,7 +16,6 @@
     <button class="nav-pill focusable active" data-page="home">Home</button>
     <button class="nav-pill focusable" data-page="library">Library</button>
     <button class="nav-pill focusable" data-page="settings">Settings</button>
-    <button class="nav-pill focusable" id="nav-update" data-page="update">Update App</button>
     <div id="library-status" class="nav-pill nav-status hidden" role="status" aria-live="polite"></div>
   </nav>
 
@@ -24,6 +23,19 @@
   <div id="coming-soon" class="hidden">
     <span>Coming Soon</span>
   </div>
+
+  <!-- Settings Section -->
+  <section id="settings-page" class="hidden">
+    <div id="settings-list">
+      <div class="settings-item focusable" id="settings-update" tabindex="-1">
+        <div class="settings-item-left">
+          <div class="settings-item-title">Update App</div>
+          <div class="settings-item-desc">Download and install the latest version</div>
+        </div>
+        <button class="settings-action-btn" id="settings-update-btn">Check for Update</button>
+      </div>
+    </div>
+  </section>
 
   <!-- Hero Section -->
   <section id="hero">

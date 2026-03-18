@@ -430,6 +430,16 @@ function handleLibraryEnter() {
   }
 }
 
+function handleSettingsEnter() {
+  const btn = document.getElementById('settings-update-btn');
+  if (!btn || btn.disabled) return;
+  btn.textContent = 'Downloading...';
+  btn.disabled = true;
+  if (nativeBridge && typeof nativeBridge.updateApp === 'function') {
+    nativeBridge.updateApp('https://github.com/lunatestus/ALEX-TV/releases/download/latest/ALEX-TV.apk');
+  }
+}
+
 function ensureLibraryLoaded() {
   if (!libraryState.loading) {
     loadLibrary(libraryState.path || LIBRARY_ROOT_PATH);
@@ -515,36 +525,27 @@ const navPills = Array.from(document.querySelectorAll('.nav-pill.focusable'));
 let currentPage = 'home';
 
 function switchPage(page) {
-  if (page === 'update') {
-    // We only focus the update button here, we don't trigger download
-    return;
-  }
-
-  const overlay = document.getElementById('coming-soon');
   const hero = document.getElementById('hero');
   const content = document.getElementById('content');
   const library = document.getElementById('library');
+  const settings = document.getElementById('settings-page');
+  const overlay = document.getElementById('coming-soon');
 
   navPills.forEach(p => p.classList.toggle('active', p.dataset.page === page));
   currentPage = page;
   updateNavState();
 
-  if (page === 'home') {
-    overlay.classList.add('hidden');
-    hero.style.display = '';
-    content.style.display = '';
-    if (library) library.classList.add('hidden');
-  } else if (page === 'library') {
-    overlay.classList.add('hidden');
-    hero.style.display = 'none';
-    content.style.display = 'none';
-    if (library) library.classList.remove('hidden');
-    ensureLibraryLoaded();
-  } else {
-    overlay.classList.remove('hidden');
-    hero.style.display = 'none';
-    content.style.display = 'none';
-    if (library) library.classList.add('hidden');
+  hero.style.display = page === 'home' ? '' : 'none';
+  content.style.display = page === 'home' ? '' : 'none';
+  library.classList.toggle('hidden', page !== 'library');
+  settings.classList.toggle('hidden', page !== 'settings');
+  overlay.classList.toggle('hidden', true);
+
+  if (page === 'library') ensureLibraryLoaded();
+  if (page === 'settings') {
+    // focus the update row
+    const el = document.getElementById('settings-update');
+    if (el) { nav.area = 'settings'; nav.settingsIndex = 0; el.focus({ preventScroll: true }); }
   }
 }
 
@@ -650,17 +651,17 @@ function processNavKey(key) {
   const prevLib = nav.libraryIndex;
 
   if (key === 'Enter') {
-    if (nav.area === 'nav') {
-      const el = navPills[nav.col];
-      if (el && el.dataset.page === 'update') {
-        if (nativeBridge && typeof nativeBridge.updateApp === 'function') {
-          const btn = document.getElementById('nav-update');
-          if (btn) btn.textContent = 'Downloading...';
-          nativeBridge.updateApp('https://github.com/lunatestus/ALEX-TV/releases/download/latest/ALEX-TV.apk');
-        }
-      }
-    }
     if (nav.area === 'library') handleLibraryEnter();
+    if (nav.area === 'settings') handleSettingsEnter();
+    return;
+  }
+
+  if (nav.area === 'settings') {
+    if (key === 'ArrowUp') {
+      nav.area = 'nav';
+      nav.col = navPills.findIndex(p => p.dataset.page === 'settings');
+      focusCurrent();
+    }
     return;
   }
 
@@ -708,6 +709,12 @@ function processNavKey(key) {
         } else if (currentPage === 'library') {
           nav.area = 'library';
           nav.libraryIndex = 0;
+        } else if (currentPage === 'settings') {
+          nav.area = 'settings';
+          nav.settingsIndex = 0;
+          const el = document.getElementById('settings-update');
+          if (el) el.focus({ preventScroll: true });
+          return;
         }
       } else if (nav.area < totalContentRows() - 1) {
         nav.area++;
