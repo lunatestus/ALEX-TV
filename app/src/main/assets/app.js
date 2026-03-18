@@ -542,11 +542,6 @@ function switchPage(page) {
   overlay.classList.toggle('hidden', true);
 
   if (page === 'library') ensureLibraryLoaded();
-  if (page === 'settings') {
-    // focus the update row
-    const el = document.getElementById('settings-update');
-    if (el) { nav.area = 'settings'; nav.settingsIndex = 0; el.focus({ preventScroll: true }); }
-  }
 }
 
 // ── Spatial Navigation ──
@@ -569,6 +564,11 @@ function focusCurrent() {
       el.focus({ preventScroll: true });
       scrollLibraryIntoView(el);
     }
+    return;
+  }
+  if (nav.area === 'settings') {
+    const el = document.getElementById('settings-update');
+    if (el) el.focus({ preventScroll: true });
     return;
   }
   const row = nav.rows[nav.area] || [];

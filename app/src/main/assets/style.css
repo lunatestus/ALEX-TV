@@ -135,6 +135,7 @@ body {
 }
 
 .settings-item.focusable:focus {
+  transform: none;
   box-shadow: inset 0 0 0 2px var(--focus-ring);
   background: rgba(255,255,255,0.1);
 }
