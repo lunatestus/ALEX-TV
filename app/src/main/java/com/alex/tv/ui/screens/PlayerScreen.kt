@@ -25,17 +25,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -66,7 +68,9 @@ import com.alex.tv.R
 import com.alex.tv.ui.theme.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.roundToLong
 
 @Composable
 fun PlayerScreen(
@@ -106,8 +110,6 @@ fun PlayerScreen(
     var showControls by remember { mutableStateOf(true) }
     var lastInteraction by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var playbackError by remember { mutableStateOf<String?>(null) }
-    var playbackState by remember { mutableIntStateOf(Player.STATE_IDLE) }
-    var isBuffering by remember { mutableStateOf(false) }
     var retryCount by remember { mutableIntStateOf(0) }
     var retryToken by remember { mutableLongStateOf(0L) }
     var pendingAudioFallbackParams by remember { mutableStateOf<DefaultTrackSelector.Parameters?>(null) }
@@ -125,8 +127,6 @@ fun PlayerScreen(
     val audioFocusRequester = remember { FocusRequester() }
     val screenFocusRequester = remember { FocusRequester() }
     var resumeOnStart by remember { mutableStateOf(false) }
-    var durationMs by remember { mutableLongStateOf(0L) }
-    var currentPositionMs by remember { mutableLongStateOf(0L) }
 
     BackHandler(enabled = isMenuOpen) {
         showCaptionMenu = false
@@ -162,7 +162,6 @@ fun PlayerScreen(
                     } else {
                         "Selected audio track isn't supported on this device. Reverted to previous."
                     }
-                    isBuffering = false
                     val shouldResume = exoPlayer.playWhenReady
                     exoPlayer.prepare()
                     exoPlayer.playWhenReady = shouldResume
@@ -170,7 +169,6 @@ fun PlayerScreen(
                     return
                 }
                 playbackError = error.message ?: "Playback error"
-                isBuffering = false
                 if (retryCount < 2) {
                     retryCount += 1
                     scope.launch {
@@ -181,8 +179,6 @@ fun PlayerScreen(
             }
 
             override fun onPlaybackStateChanged(state: Int) {
-                playbackState = state
-                isBuffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_READY && playbackError != null) {
                     playbackError = null
                 }
@@ -264,19 +260,6 @@ fun PlayerScreen(
     LaunchedEffect(showControls, isMenuOpen) {
         if (showControls && !isMenuOpen) {
             playPauseFocusRequester.requestFocus() // Return focus to controls when shown
-        }
-    }
-
-    LaunchedEffect(exoPlayer, showControls) {
-        while (true) {
-            if (!showControls) {
-                delay(500)
-                continue
-            }
-            currentPositionMs = exoPlayer.currentPosition
-            val rawDuration = exoPlayer.duration
-            durationMs = if (rawDuration > 0 && rawDuration != C.TIME_UNSET) rawDuration else 0L
-            delay(250)
         }
     }
 
@@ -425,161 +408,42 @@ fun PlayerScreen(
             }
         }
 
-        // Use alpha instead of AnimatedVisibility so the UI tree doesn't change, 
-        // which prevents focus from dropping when controls hide.
-        val controlsAlpha by animateFloatAsState(
-            targetValue = if (showControls) 1f else 0f, 
-            animationSpec = tween(300)
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .alpha(controlsAlpha)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xE6000000)), startY = 0.6f))
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-        ) {
-            Column(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
-                PlayerSeekBar(
-                    exoPlayer = exoPlayer,
-                    onInteraction = { lastInteraction = System.currentTimeMillis() },
-                    showControls = showControls,
-                    controlsEnabled = showControls && !isMenuOpen,
-                    focusRequester = seekbarFocusRequester,
-                    downRequester = playPauseFocusRequester
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        PlayerButton(
-                            icon = if (isPlaying) PlayerIcons.Pause else PlayerIcons.Play,
-                            onClick = { 
-                                lastInteraction = System.currentTimeMillis()
-                                if (isPlaying) exoPlayer.pause() else exoPlayer.play() 
-                            },
-                            isPrimary = true,
-                            modifier = Modifier.focusRequester(playPauseFocusRequester),
-                            focusProps = {
-                                up = seekbarFocusRequester
-                                right = rewindFocusRequester
-                                left = FocusRequester.Cancel
-                            },
-                            enabled = showControls && !isMenuOpen
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        PlayerButton(
-                            icon = PlayerIcons.Rewind,
-                            onClick = { 
-                                lastInteraction = System.currentTimeMillis()
-                                val next = (exoPlayer.currentPosition - 10000).coerceAtLeast(0L)
-                                exoPlayer.seekTo(next)
-                            },
-                            modifier = Modifier.focusRequester(rewindFocusRequester),
-                            focusProps = {
-                                up = seekbarFocusRequester
-                                left = playPauseFocusRequester
-                                right = forwardFocusRequester
-                            },
-                            enabled = showControls && !isMenuOpen
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        PlayerButton(
-                            icon = PlayerIcons.Forward,
-                            onClick = { 
-                                lastInteraction = System.currentTimeMillis()
-                                val rawDuration = exoPlayer.duration
-                                val safeDuration = if (rawDuration > 0 && rawDuration != C.TIME_UNSET) rawDuration else Long.MAX_VALUE
-                                val next = (exoPlayer.currentPosition + 10000).coerceAtMost(safeDuration)
-                                exoPlayer.seekTo(next)
-                            },
-                            modifier = Modifier.focusRequester(forwardFocusRequester),
-                            focusProps = {
-                                up = seekbarFocusRequester
-                                left = rewindFocusRequester
-                                right = captionFocusRequester
-                            },
-                            enabled = showControls && !isMenuOpen
-                        )
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        PlayerButton(
-                            icon = painterResource(id = R.drawable.ic_caption),
-                            onClick = { 
-                                lastInteraction = System.currentTimeMillis()
-                                showCaptionMenu = true
-                                showAudioMenu = false
-                                showControls = true
-                            },
-                            modifier = Modifier.focusRequester(captionFocusRequester),
-                            focusProps = {
-                                up = seekbarFocusRequester
-                                left = forwardFocusRequester
-                                right = audioFocusRequester
-                            },
-                            enabled = showControls && !isMenuOpen
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        PlayerButton(
-                            icon = painterResource(id = R.drawable.ic_audio),
-                            onClick = { 
-                                lastInteraction = System.currentTimeMillis()
-                                showAudioMenu = true
-                                showCaptionMenu = false
-                                showControls = true
-                            },
-                            modifier = Modifier.focusRequester(audioFocusRequester),
-                            focusProps = {
-                                up = seekbarFocusRequester
-                                left = captionFocusRequester
-                                right = FocusRequester.Cancel
-                            },
-                            enabled = showControls && !isMenuOpen
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "${if (durationMs > 0L) formatTime(currentPositionMs) else "--:--"} / ${formatTimeOrUnknown(durationMs)}",
-                            color = Color(0xCCFFFFFF),
-                            fontSize = 12.sp,
-                            fontFamily = DmSans,
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .fillMaxWidth()
-                .height(120.dp)
-                .alpha(controlsAlpha)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color(0xD9000000), Color.Transparent)
-                    )
-                )
-        )
-        Text(
-            text = title,
-            color = TextColor,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = DmSans,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .fillMaxWidth()
-                .alpha(controlsAlpha)
+        PlayerControlsOverlay(
+            exoPlayer = exoPlayer,
+            title = title,
+            isPlaying = isPlaying,
+            showControls = showControls,
+            isMenuOpen = isMenuOpen,
+            onInteraction = { lastInteraction = System.currentTimeMillis() },
+            onTogglePlayPause = {
+                lastInteraction = System.currentTimeMillis()
+                if (isPlaying) exoPlayer.pause() else exoPlayer.play()
+            },
+            onSeekBy = { offsetMs ->
+                lastInteraction = System.currentTimeMillis()
+                val rawDuration = exoPlayer.duration
+                val safeDuration = if (rawDuration > 0 && rawDuration != C.TIME_UNSET) rawDuration else Long.MAX_VALUE
+                val next = (exoPlayer.currentPosition + offsetMs).coerceAtLeast(0L).coerceAtMost(safeDuration)
+                exoPlayer.seekTo(next)
+            },
+            onShowCaptions = {
+                lastInteraction = System.currentTimeMillis()
+                showCaptionMenu = true
+                showAudioMenu = false
+                showControls = true
+            },
+            onShowAudio = {
+                lastInteraction = System.currentTimeMillis()
+                showAudioMenu = true
+                showCaptionMenu = false
+                showControls = true
+            },
+            seekbarFocusRequester = seekbarFocusRequester,
+            playPauseFocusRequester = playPauseFocusRequester,
+            rewindFocusRequester = rewindFocusRequester,
+            forwardFocusRequester = forwardFocusRequester,
+            captionFocusRequester = captionFocusRequester,
+            audioFocusRequester = audioFocusRequester
         )
 
         if (isMenuOpen) {
@@ -605,25 +469,296 @@ fun PlayerScreen(
     }
 }
 
+@Composable
+private fun PlayerControlsOverlay(
+    exoPlayer: ExoPlayer,
+    title: String,
+    isPlaying: Boolean,
+    showControls: Boolean,
+    isMenuOpen: Boolean,
+    onInteraction: () -> Unit,
+    onTogglePlayPause: () -> Unit,
+    onSeekBy: (Long) -> Unit,
+    onShowCaptions: () -> Unit,
+    onShowAudio: () -> Unit,
+    seekbarFocusRequester: FocusRequester,
+    playPauseFocusRequester: FocusRequester,
+    rewindFocusRequester: FocusRequester,
+    forwardFocusRequester: FocusRequester,
+    captionFocusRequester: FocusRequester,
+    audioFocusRequester: FocusRequester
+) {
+    val controlsAlpha by animateFloatAsState(
+        targetValue = if (showControls) 1f else 0f,
+        animationSpec = tween(durationMillis = 220)
+    )
+    val bottomScrimColors = remember {
+        listOf(
+            Color.Transparent,
+            Color(0x06000000),
+            Color(0x16000000),
+            Color(0x52000000)
+        )
+    }
+    val topScrimColors = remember {
+        listOf(
+            Color(0x42000000),
+            Color.Transparent
+        )
+    }
+
+    val controlsVisible = showControls && !isMenuOpen
+
+    Box(
+        modifier = Modifier
+            .align(Alignment.BottomStart)
+            .fillMaxWidth()
+            .height(192.dp)
+            .graphicsLayer {
+                alpha = controlsAlpha
+                compositingStrategy = CompositingStrategy.ModulateAlpha
+            }
+            .playerVerticalScrim(bottomScrimColors)
+    )
+
+    PlayerBottomControls(
+        exoPlayer = exoPlayer,
+        isPlaying = isPlaying,
+        controlsAlpha = controlsAlpha,
+        controlsVisible = controlsVisible,
+        onInteraction = onInteraction,
+        onTogglePlayPause = onTogglePlayPause,
+        onSeekBy = onSeekBy,
+        onShowCaptions = onShowCaptions,
+        onShowAudio = onShowAudio,
+        seekbarFocusRequester = seekbarFocusRequester,
+        playPauseFocusRequester = playPauseFocusRequester,
+        rewindFocusRequester = rewindFocusRequester,
+        forwardFocusRequester = forwardFocusRequester,
+        captionFocusRequester = captionFocusRequester,
+        audioFocusRequester = audioFocusRequester
+    )
+
+    Box(
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .fillMaxWidth()
+            .height(72.dp)
+            .graphicsLayer {
+                alpha = controlsAlpha
+                compositingStrategy = CompositingStrategy.ModulateAlpha
+            }
+            .playerVerticalScrim(topScrimColors)
+    )
+
+    Text(
+        text = title,
+        color = TextColor,
+        fontSize = 16.sp,
+        fontWeight = FontWeight.SemiBold,
+        fontFamily = DmSans,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .padding(horizontal = 24.dp, vertical = 16.dp)
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = controlsAlpha
+                compositingStrategy = CompositingStrategy.ModulateAlpha
+            }
+    )
+}
+
+@Composable
+private fun PlayerBottomControls(
+    exoPlayer: ExoPlayer,
+    isPlaying: Boolean,
+    controlsAlpha: Float,
+    controlsVisible: Boolean,
+    onInteraction: () -> Unit,
+    onTogglePlayPause: () -> Unit,
+    onSeekBy: (Long) -> Unit,
+    onShowCaptions: () -> Unit,
+    onShowAudio: () -> Unit,
+    seekbarFocusRequester: FocusRequester,
+    playPauseFocusRequester: FocusRequester,
+    rewindFocusRequester: FocusRequester,
+    forwardFocusRequester: FocusRequester,
+    captionFocusRequester: FocusRequester,
+    audioFocusRequester: FocusRequester
+) {
+    var currentPositionMs by remember(exoPlayer) { mutableLongStateOf(0L) }
+    var durationMs by remember(exoPlayer) { mutableLongStateOf(0L) }
+    var scrubPositionMs by remember(exoPlayer) { mutableLongStateOf(0L) }
+    var isScrubbing by remember(exoPlayer) { mutableStateOf(false) }
+
+    LaunchedEffect(exoPlayer, controlsVisible, isScrubbing) {
+        while (isActive) {
+            if (!controlsVisible || isScrubbing) {
+                delay(120)
+                continue
+            }
+
+            currentPositionMs = exoPlayer.currentPosition
+            val rawDuration = exoPlayer.duration
+            durationMs = if (rawDuration > 0 && rawDuration != C.TIME_UNSET) rawDuration else 0L
+            delay(if (exoPlayer.isPlaying) 100 else 250)
+        }
+    }
+
+    LaunchedEffect(controlsVisible) {
+        if (!controlsVisible) {
+            isScrubbing = false
+        }
+    }
+
+    val displayedPositionMs = if (isScrubbing) scrubPositionMs else currentPositionMs
+
+    Column(
+        modifier = Modifier
+            .align(Alignment.BottomStart)
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = controlsAlpha
+                compositingStrategy = CompositingStrategy.ModulateAlpha
+            }
+            .padding(horizontal = 24.dp, vertical = 16.dp)
+    ) {
+        PlayerSeekBar(
+            positionMs = displayedPositionMs,
+            durationMs = durationMs,
+            isSeekable = durationMs > 0L && exoPlayer.isCurrentMediaItemSeekable,
+            onInteraction = onInteraction,
+            controlsEnabled = controlsVisible,
+            focusRequester = seekbarFocusRequester,
+            downRequester = playPauseFocusRequester,
+            onSeekPreview = { previewPosition ->
+                if (!isScrubbing) isScrubbing = true
+                scrubPositionMs = previewPosition
+            },
+            onSeekCommit = { finalPosition ->
+                scrubPositionMs = finalPosition
+                currentPositionMs = finalPosition
+                isScrubbing = false
+                exoPlayer.seekTo(finalPosition)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PlayerButton(
+                    icon = if (isPlaying) PlayerIcons.Pause else PlayerIcons.Play,
+                    onClick = onTogglePlayPause,
+                    isPrimary = true,
+                    modifier = Modifier.focusRequester(playPauseFocusRequester),
+                    focusProps = {
+                        up = seekbarFocusRequester
+                        right = rewindFocusRequester
+                        left = FocusRequester.Cancel
+                    },
+                    enabled = controlsVisible
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                PlayerButton(
+                    icon = PlayerIcons.Rewind,
+                    onClick = { onSeekBy(-10_000L) },
+                    modifier = Modifier.focusRequester(rewindFocusRequester),
+                    focusProps = {
+                        up = seekbarFocusRequester
+                        left = playPauseFocusRequester
+                        right = forwardFocusRequester
+                    },
+                    enabled = controlsVisible
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                PlayerButton(
+                    icon = PlayerIcons.Forward,
+                    onClick = { onSeekBy(10_000L) },
+                    modifier = Modifier.focusRequester(forwardFocusRequester),
+                    focusProps = {
+                        up = seekbarFocusRequester
+                        left = rewindFocusRequester
+                        right = captionFocusRequester
+                    },
+                    enabled = controlsVisible
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PlayerButton(
+                    icon = painterResource(id = R.drawable.ic_caption),
+                    onClick = onShowCaptions,
+                    modifier = Modifier.focusRequester(captionFocusRequester),
+                    focusProps = {
+                        up = seekbarFocusRequester
+                        left = forwardFocusRequester
+                        right = audioFocusRequester
+                    },
+                    enabled = controlsVisible
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                PlayerButton(
+                    icon = painterResource(id = R.drawable.ic_audio),
+                    onClick = onShowAudio,
+                    modifier = Modifier.focusRequester(audioFocusRequester),
+                    focusProps = {
+                        up = seekbarFocusRequester
+                        left = captionFocusRequester
+                        right = FocusRequester.Cancel
+                    },
+                    enabled = controlsVisible
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "${if (durationMs > 0L) formatTime(displayedPositionMs) else "--:--"} / ${formatTimeOrUnknown(durationMs)}",
+                    color = Color(0xCCFFFFFF),
+                    fontSize = 12.sp,
+                    fontFamily = DmSans,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+private fun Modifier.playerVerticalScrim(colors: List<Color>): Modifier = drawWithCache {
+    val brush = Brush.verticalGradient(
+        colors = colors,
+        startY = 0f,
+        endY = size.height
+    )
+    onDrawBehind {
+        drawRect(brush = brush)
+    }
+}
+
 // Extract seekbar to scope state reads and prevent whole-screen recomposition
 @Composable
 fun PlayerSeekBar(
-    exoPlayer: ExoPlayer, 
+    positionMs: Long,
+    durationMs: Long,
+    isSeekable: Boolean,
     onInteraction: () -> Unit,
-    showControls: Boolean,
     controlsEnabled: Boolean,
     focusRequester: FocusRequester,
-    downRequester: FocusRequester
+    downRequester: FocusRequester,
+    onSeekPreview: (Long) -> Unit,
+    onSeekCommit: (Long) -> Unit
 ) {
-    var currentPosition by remember { mutableLongStateOf(0L) }
-    var duration by remember { mutableLongStateOf(0L) }
-    var lastSeekTime by remember { mutableLongStateOf(0L) }
     var isProgressFocused by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var seekJob by remember { mutableStateOf<Job?>(null) }
     var seekDirection by remember { mutableIntStateOf(0) }
-    var seekStartTime by remember { mutableLongStateOf(0L) }
+    var seekStartNanos by remember { mutableLongStateOf(0L) }
     var didSeekDuringHold by remember { mutableStateOf(false) }
+    var previewPositionMs by remember { mutableLongStateOf(positionMs) }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -632,30 +767,17 @@ fun PlayerSeekBar(
         }
     }
 
-    LaunchedEffect(exoPlayer, showControls) {
-        while (true) {
-            if (!showControls) {
-                delay(500)
-                continue
-            }
-            // Don't update from player if user is actively seeking (debounce)
-            if (System.currentTimeMillis() - lastSeekTime > 500) {
-                currentPosition = exoPlayer.currentPosition
-            }
-            val rawDuration = exoPlayer.duration
-            duration = if (rawDuration > 0 && rawDuration != C.TIME_UNSET) rawDuration else 0L
-            delay(250) // Reduced refresh rate to save CPU
+    LaunchedEffect(positionMs, seekJob) {
+        if (seekJob == null) {
+            previewPositionMs = positionMs
         }
     }
 
-    val isDurationKnown = duration > 0L
-    val isSeekable = isDurationKnown && exoPlayer.isCurrentMediaItemSeekable
-
-    val barHeight = 3.dp
-    val dotSize by animateDpAsState(targetValue = if (isProgressFocused) 14.dp else 0.dp)
+    val isDurationKnown = durationMs > 0L
+    val barHeight = 4.dp
+    val dotSize by animateDpAsState(targetValue = if (isProgressFocused) 14.dp else 10.dp)
     
-    val progress = if (isDurationKnown) currentPosition.toFloat() / duration.toFloat() else 0f
-    // Don't animate the progress bar filling, as it fights with the user seeking
+    val progress = if (isDurationKnown) previewPositionMs.toFloat() / durationMs.toFloat() else 0f
     val animatedProgress = progress.coerceIn(0f, 1f)
     val containerHeight = 16.dp
 
@@ -679,49 +801,52 @@ fun PlayerSeekBar(
 
                 if (isLeft || isRight) {
                     if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                        lastSeekTime = System.currentTimeMillis()
                         val newDirection = if (isLeft) -1 else 1
-                        if (seekDirection != newDirection) {
-                            seekStartTime = System.currentTimeMillis()
-                        } else if (seekStartTime == 0L) {
-                            seekStartTime = System.currentTimeMillis()
+                        if (seekJob != null && seekDirection == newDirection) {
+                            return@onKeyEvent true
                         }
+                        seekJob?.cancel()
                         seekDirection = newDirection
+                        seekStartNanos = System.nanoTime()
                         didSeekDuringHold = false
-                        if (seekJob == null) {
-                            seekJob = scope.launch {
-                                // Wait briefly before treating as a long-press.
-                                delay(150)
-                                while (true) {
-                                    val elapsed = (System.currentTimeMillis() - seekStartTime).coerceAtLeast(0L)
-                                    // Smooth acceleration: faster the longer the hold, capped.
-                                    val accelSteps = (elapsed / 200L).coerceAtMost(14L)
-                                    val baseVelocity = 120_000L // ms per second
-                                    val velocity = baseVelocity + accelSteps * 80_000L
-                                    val tickMs = 40L
-                                    val step = (velocity * tickMs / 1000L) * seekDirection
-                                    val next = (currentPosition + step).coerceAtLeast(0L)
-                                    currentPosition = next.coerceAtMost(duration)
+                        previewPositionMs = positionMs
+                        seekJob = scope.launch {
+                            delay(120)
+                            var lastFrameNanos = withFrameNanos { it }
+                            while (isActive) {
+                                val frameNanos = withFrameNanos { it }
+                                val deltaMs = ((frameNanos - lastFrameNanos) / 1_000_000f).coerceIn(8f, 40f)
+                                lastFrameNanos = frameNanos
+                                val heldMs = ((frameNanos - seekStartNanos) / 1_000_000f).coerceAtLeast(0f)
+                                val velocityPerSecond = when {
+                                    heldMs < 500f -> 45_000f
+                                    heldMs < 1400f -> 110_000f
+                                    else -> 220_000f
+                                }
+                                val delta = (velocityPerSecond * deltaMs / 1000f) * seekDirection
+                                val next = (previewPositionMs + delta).roundToLong()
+                                    .coerceIn(0L, durationMs)
+                                if (next != previewPositionMs) {
+                                    previewPositionMs = next
                                     didSeekDuringHold = true
-                                    lastSeekTime = System.currentTimeMillis()
+                                    onSeekPreview(next)
                                     onInteraction()
-                                    delay(tickMs)
                                 }
                             }
                         }
                         true
                     } else if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_UP) {
-                        lastSeekTime = System.currentTimeMillis()
-                        seekStartTime = 0L
-                        seekJob?.cancel()
+                        val activeJob = seekJob
                         seekJob = null
-                        if (!didSeekDuringHold) {
-                            val step = 10_000L * seekDirection
-                            val next = (currentPosition + step).coerceAtLeast(0L).coerceAtMost(duration)
-                            currentPosition = next
+                        activeJob?.cancel()
+                        val finalPosition = if (didSeekDuringHold) {
+                            previewPositionMs
+                        } else {
+                            (positionMs + (10_000L * seekDirection)).coerceIn(0L, durationMs)
                         }
-                        // Commit the final position to ExoPlayer once user releases the button.
-                        exoPlayer.seekTo(currentPosition)
+                        seekStartNanos = 0L
+                        previewPositionMs = finalPosition
+                        onSeekCommit(finalPosition)
                         true
                     } else {
                         false
