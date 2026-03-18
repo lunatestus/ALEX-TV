@@ -27,12 +27,19 @@
   <!-- Settings Section -->
   <section id="settings-page" class="hidden">
     <div id="settings-list">
-      <div class="settings-item focusable" id="settings-update" tabindex="-1">
+      <div class="settings-item focusable" id="settings-update" data-action="update" tabindex="-1">
         <div class="settings-item-left">
           <div class="settings-item-title">Update App</div>
           <div class="settings-item-desc">Download and install the latest version</div>
         </div>
         <button class="settings-action-btn" id="settings-update-btn">Download Update</button>
+      </div>
+      <div class="settings-item focusable" id="settings-refresh" data-action="refresh" tabindex="-1">
+        <div class="settings-item-left">
+          <div class="settings-item-title">Refresh Content</div>
+          <div class="settings-item-desc">Clear cache and fetch the latest TMDB data</div>
+        </div>
+        <button class="settings-action-btn" id="settings-refresh-btn">Refresh Now</button>
       </div>
     </div>
   </section>

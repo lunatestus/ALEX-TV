@@ -5,6 +5,13 @@ const IMG     = 'https://image.tmdb.org/t/p';
 const BACKDROP_SIZE = 'w1280';
 const TUNNEL_ROOT = 'https://lunatestus003--vibe-backend-tunnel.modal.run';
 const LIBRARY_ROOT_PATH = '/media';
+const TMDB_CACHE_PREFIX = 'tmdb_cache_v1:';
+
+// Cache TTLs (ms)
+const TMDB_CACHE_TTL_DEFAULT = 3 * 60 * 60 * 1000; // 3 hours
+const TMDB_CACHE_TTL_TRENDING = 60 * 60 * 1000;    // 1 hour
+const TMDB_CACHE_TTL_POPULAR = 6 * 60 * 60 * 1000; // 6 hours
+const TMDB_CACHE_TTL_GENRES = 24 * 60 * 60 * 1000; // 24 hours
 
 // ── Endpoints ──
 const ROWS = [
@@ -21,10 +28,12 @@ const nav = {
   movies: [],       // parallel array: movies[rowIdx][colIdx] = movie data
   libraryIndex: 0,
   libraryItems: [],
+  settingsIndex: 0,
 };
 
 let navLastTime = 0;
 let lastRowScrollIndex = null;
+const tmdbCacheMemory = new Map();
 
 class SmoothScroller {
   constructor() {
@@ -154,8 +163,102 @@ async function fetchJson(url) {
   return res.json();
 }
 
-function tmdbFetch(path) {
-  return fetch(`${BASE}${path}`).then(r => r.json());
+function getTmdbCacheTtl(path) {
+  if (path.startsWith('/trending/')) return TMDB_CACHE_TTL_TRENDING;
+  if (path.startsWith('/movie/popular')) return TMDB_CACHE_TTL_POPULAR;
+  if (path.startsWith('/genre/')) return TMDB_CACHE_TTL_GENRES;
+  return TMDB_CACHE_TTL_DEFAULT;
+}
+
+function isValidCacheEntry(entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  if (typeof entry.expiresAt !== 'number') return false;
+  if (!Object.prototype.hasOwnProperty.call(entry, 'data')) return false;
+  return true;
+}
+
+function sweepTmdbCache(now = Date.now()) {
+  for (const [key, entry] of tmdbCacheMemory.entries()) {
+    if (!entry || entry.expiresAt <= now) {
+      tmdbCacheMemory.delete(key);
+    }
+  }
+}
+
+function readTmdbCache(path) {
+  const key = TMDB_CACHE_PREFIX + path;
+  const now = Date.now();
+
+  sweepTmdbCache(now);
+
+  if (tmdbCacheMemory.has(key)) {
+    const entry = tmdbCacheMemory.get(key);
+    if (entry && entry.expiresAt > now) return entry.data;
+    tmdbCacheMemory.delete(key);
+  }
+
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    if (!isValidCacheEntry(entry)) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    if (entry.expiresAt > now) {
+      tmdbCacheMemory.set(key, entry);
+      return entry.data;
+    }
+    localStorage.removeItem(key);
+  } catch (err) {
+    // Ignore cache read failures (e.g. storage disabled)
+  }
+
+  return null;
+}
+
+function writeTmdbCache(path, data, ttlMs) {
+  const key = TMDB_CACHE_PREFIX + path;
+  const entry = {
+    expiresAt: Date.now() + ttlMs,
+    data
+  };
+  sweepTmdbCache();
+  tmdbCacheMemory.set(key, entry);
+  try {
+    localStorage.setItem(key, JSON.stringify(entry));
+  } catch (err) {
+    // Ignore cache write failures (e.g. quota exceeded)
+  }
+}
+
+function clearTmdbCache() {
+  tmdbCacheMemory.clear();
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(TMDB_CACHE_PREFIX)) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch (err) {
+    // Ignore cache clear failures
+  }
+}
+
+async function tmdbFetch(path, options = {}) {
+  const { bypassCache = false, ttlMs } = options;
+  if (!bypassCache) {
+    const cached = readTmdbCache(path);
+    if (cached) return cached;
+  }
+
+  const res = await fetch(`${BASE}${path}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  const ttl = typeof ttlMs === 'number' ? ttlMs : getTmdbCacheTtl(path);
+  writeTmdbCache(path, data, ttl);
+  return data;
 }
 
 function posterURL(path, size = 'w300') {
@@ -431,12 +534,41 @@ function handleLibraryEnter() {
 }
 
 function handleSettingsEnter() {
-  const btn = document.getElementById('settings-update-btn');
-  if (!btn || btn.disabled) return;
-  btn.textContent = 'Downloading...';
-  btn.disabled = true;
-  if (nativeBridge && typeof nativeBridge.updateApp === 'function') {
-    nativeBridge.updateApp('https://github.com/lunatestus/ALEX-TV/releases/download/latest/ALEX-TV.apk');
+  const items = settingsItems;
+  const current = items[nav.settingsIndex];
+  if (!current) return;
+  const action = current.dataset.action || current.id;
+
+  if (action === 'update' || action === 'settings-update') {
+    const btn = document.getElementById('settings-update-btn');
+    if (!btn || btn.disabled) return;
+    btn.textContent = 'Downloading...';
+    btn.disabled = true;
+    if (nativeBridge && typeof nativeBridge.updateApp === 'function') {
+      nativeBridge.updateApp('https://github.com/lunatestus/ALEX-TV/releases/download/latest/ALEX-TV.apk');
+    }
+    return;
+  }
+
+  if (action === 'refresh' || action === 'settings-refresh') {
+    const btn = document.getElementById('settings-refresh-btn');
+    if (!btn || btn.disabled) return;
+    btn.textContent = 'Refreshing...';
+    btn.disabled = true;
+    clearTmdbCache();
+    loadHomeContent({ bypassCache: true })
+      .then(() => {
+        btn.textContent = 'Refresh Now';
+      })
+      .catch(() => {
+        btn.textContent = 'Refresh Failed';
+        setTimeout(() => {
+          btn.textContent = 'Refresh Now';
+        }, 1200);
+      })
+      .finally(() => {
+        btn.disabled = false;
+      });
   }
 }
 
@@ -481,6 +613,7 @@ function renderRow(rowEl, movies, rowIdx) {
 // ── Skeleton loaders ──
 function showSkeletons() {
   document.querySelectorAll('.row-scroll').forEach(scroll => {
+    scroll.innerHTML = '';
     for (let i = 0; i < 8; i++) {
       const el = document.createElement('div');
       el.className = 'card skeleton';
@@ -490,29 +623,33 @@ function showSkeletons() {
   });
 }
 
-// ── Init ──
-async function init() {
+async function loadHomeContent(options = {}) {
+  const { bypassCache = false } = options;
   showSkeletons();
 
-  // Fetch genres + all rows in parallel
+  const fetchOptions = bypassCache ? { bypassCache: true } : undefined;
   const [genreData, ...results] = await Promise.all([
-    tmdbFetch(`/genre/movie/list?api_key=${API_KEY}`),
-    ...ROWS.map(r => tmdbFetch(r.url))
+    tmdbFetch(`/genre/movie/list?api_key=${API_KEY}`, fetchOptions),
+    ...ROWS.map(r => tmdbFetch(r.url, fetchOptions))
   ]);
 
+  genreMap = {};
   if (genreData && genreData.genres) {
     genreData.genres.forEach(g => { genreMap[g.id] = g.name; });
   }
 
-  // Set hero from trending #1
   const heroMovie = results[0].results[0];
   if (heroMovie) setHero(heroMovie);
 
-  // Render each row
   const rowEls = document.querySelectorAll('.row');
   results.forEach((data, i) => {
     renderRow(rowEls[i], data.results, i);
   });
+}
+
+// ── Init ──
+async function init() {
+  await loadHomeContent();
 
   // Start focus on first content row
   nav.area = 0;
@@ -522,6 +659,7 @@ async function init() {
 
 // ── Page Switching ──
 const navPills = Array.from(document.querySelectorAll('.nav-pill.focusable'));
+const settingsItems = Array.from(document.querySelectorAll('.settings-item.focusable'));
 let currentPage = 'home';
 
 function switchPage(page) {
@@ -567,7 +705,9 @@ function focusCurrent() {
     return;
   }
   if (nav.area === 'settings') {
-    const el = document.getElementById('settings-update');
+    const items = settingsItems;
+    nav.settingsIndex = clamp(nav.settingsIndex, 0, items.length - 1);
+    const el = items[nav.settingsIndex];
     if (el) el.focus({ preventScroll: true });
     return;
   }
@@ -658,8 +798,15 @@ function processNavKey(key) {
 
   if (nav.area === 'settings') {
     if (key === 'ArrowUp') {
-      nav.area = 'nav';
-      nav.col = navPills.findIndex(p => p.dataset.page === 'settings');
+      if (nav.settingsIndex === 0) {
+        nav.area = 'nav';
+        nav.col = navPills.findIndex(p => p.dataset.page === 'settings');
+      } else {
+        nav.settingsIndex = Math.max(0, nav.settingsIndex - 1);
+      }
+      focusCurrent();
+    } else if (key === 'ArrowDown') {
+      nav.settingsIndex = clamp(nav.settingsIndex + 1, 0, settingsItems.length - 1);
       focusCurrent();
     }
     return;
@@ -709,13 +856,12 @@ function processNavKey(key) {
         } else if (currentPage === 'library') {
           nav.area = 'library';
           nav.libraryIndex = 0;
-        } else if (currentPage === 'settings') {
-          nav.area = 'settings';
-          nav.settingsIndex = 0;
-          const el = document.getElementById('settings-update');
-          if (el) el.focus({ preventScroll: true });
-          return;
-        }
+      } else if (currentPage === 'settings') {
+        nav.area = 'settings';
+        nav.settingsIndex = 0;
+        focusCurrent();
+        return;
+      }
       } else if (nav.area < totalContentRows() - 1) {
         nav.area++;
         nav.col = nav.cols[nav.area] ?? nav.col;
