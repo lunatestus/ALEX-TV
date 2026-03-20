@@ -120,6 +120,8 @@ const libraryState = {
   loading: false,
   hasLoaded: false,
   hasError: false,
+  retryCount: 0,
+  retryTimer: null,
 };
 
 // ── Helpers ──
@@ -402,6 +404,7 @@ window.__goHome = function() {
 async function resolveTunnelUrl() {
   // Wake the backend (ignore errors; it may already be running).
   try {
+    setLibraryStatus('Starting backend...');
     await fetchJson(LAUNCH_ROOT);
   } catch (err) {
     // no-op
@@ -412,13 +415,15 @@ async function resolveTunnelUrl() {
 
   for (let i = 0; i < maxAttempts; i++) {
     try {
+      if (i === 0) setLibraryStatus('Fetching tunnel URL...');
       const data = await fetchJson(TUNNEL_ROOT);
       if (data && data.url) return data.url;
       if (data && data.status && data.status !== 'running') {
-        // Keep polling; backend might still be starting.
+        setLibraryStatus('Backend starting, waiting for tunnel...');
       }
     } catch (err) {
       // Tunnel returns 404 until ready; keep retrying.
+      if (i === 0) setLibraryStatus('Waiting for backend tunnel...');
     }
     await sleep(1000);
   }
@@ -426,8 +431,27 @@ async function resolveTunnelUrl() {
   throw new Error('Tunnel URL missing');
 }
 
+function cancelLibraryRetry() {
+  if (libraryState.retryTimer) {
+    clearTimeout(libraryState.retryTimer);
+    libraryState.retryTimer = null;
+  }
+}
+
+function scheduleLibraryRetry(reason) {
+  if (libraryState.retryTimer || currentPage !== 'library') return;
+  const delay = Math.min(1000 * Math.pow(1.5, libraryState.retryCount), 10000);
+  libraryState.retryCount += 1;
+  setLibraryStatus(`${reason} Retrying in ${Math.ceil(delay / 1000)}s...`);
+  libraryState.retryTimer = setTimeout(() => {
+    libraryState.retryTimer = null;
+    loadLibrary(libraryState.path || LIBRARY_ROOT_PATH);
+  }, delay);
+}
+
 async function loadLibrary(path) {
   if (libraryState.loading) return;
+  cancelLibraryRetry();
   libraryState.loading = true;
   setLibraryStatus('Loading library...');
   try {
@@ -441,6 +465,7 @@ async function loadLibrary(path) {
     libraryState.visibleItems = [];
     libraryState.hasLoaded = true;
     libraryState.hasError = false;
+    libraryState.retryCount = 0;
     updateNavState();
     renderLibrary();
     setLibraryStatus(libraryState.visibleItems.length ? '' : 'Empty folder');
@@ -450,7 +475,14 @@ async function loadLibrary(path) {
     libraryState.hasLoaded = false;
     libraryState.hasError = true;
     renderLibrary();
-    setLibraryStatus('Failed to load library');
+    const msg = String(err && err.message ? err.message : '');
+    if (msg.includes('Tunnel URL missing')) {
+      setLibraryStatus('Backend is starting...');
+      scheduleLibraryRetry('Backend is starting.');
+    } else {
+      setLibraryStatus('Failed to load library');
+      scheduleLibraryRetry('Failed to load library.');
+    }
   } finally {
     libraryState.loading = false;
   }
@@ -722,6 +754,9 @@ function switchPage(page) {
   settings.classList.toggle('hidden', page !== 'settings');
   overlay.classList.toggle('hidden', true);
 
+  if (page !== 'library') {
+    cancelLibraryRetry();
+  }
   if (page === 'library') ensureLibraryLoaded();
 }
 
