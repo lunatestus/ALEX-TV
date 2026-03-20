@@ -417,35 +417,32 @@ window.__goHome = function() {
 };
 
 async function resolveTunnelUrl() {
-  // Wake the backend (ignore errors; it may already be running).
-  try {
-    setLibraryStatus('Starting backend...');
-    await fetchJson(LAUNCH_ROOT);
-  } catch (err) {
-    // no-op
-  }
-
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const maxAttempts = 25;
+  const maxAttempts = 20;
+  const pollInterval = 3000;
 
+  // Keep polling launch until backend reports "running"
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      if (i === 0) setLibraryStatus('Fetching tunnel URL...');
+      setLibraryStatus(i === 0 ? 'Starting backend...' : 'Waiting for backend...');
+      const data = await fetchJson(LAUNCH_ROOT);
+      if (data && data.status === 'running') break;
+    } catch (err) {
+      // no-op, keep retrying
+    }
+    await sleep(pollInterval);
+  }
+
+  // Now fetch the tunnel URL
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      setLibraryStatus('Fetching tunnel URL...');
       const data = await fetchJson(TUNNEL_ROOT);
       if (data && data.url) return data.url;
-      if (data && data.status && data.status !== 'running') {
-        setLibraryStatus('Backend starting, waiting for tunnel...');
-      }
     } catch (err) {
-      // Tunnel returns 404 with status body until ready; keep retrying.
-      const data = err && err.body;
-      if (data && data.status && data.status !== 'running') {
-        setLibraryStatus('Backend starting, waiting for tunnel...');
-      } else if (i === 0) {
-        setLibraryStatus('Waiting for backend tunnel...');
-      }
+      // Tunnel not ready yet; keep retrying.
     }
-    await sleep(1000);
+    await sleep(pollInterval);
   }
 
   throw new Error('Tunnel URL missing');
