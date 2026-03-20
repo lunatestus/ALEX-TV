@@ -159,7 +159,15 @@ window.__nativeFetchResolve = function(id, ok, payload) {
       cb.reject(err);
     }
   } else {
-    cb.reject(new Error(payload || 'Native fetch failed'));
+    const msg = payload || 'Native fetch failed';
+    const err = new Error(msg);
+    // Extract HTTP status and body from "HTTP <code> <json>" format
+    const httpMatch = msg.match(/^HTTP (\d+)\s*(.*)/);
+    if (httpMatch) {
+      err.status = parseInt(httpMatch[1], 10);
+      try { err.body = JSON.parse(httpMatch[2]); } catch (_) {}
+    }
+    cb.reject(err);
   }
 };
 
@@ -168,7 +176,14 @@ async function fetchJson(url) {
     return nativeFetchJson(url);
   }
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    let body = null;
+    try { body = await res.json(); } catch (_) {}
+    const err = new Error(`HTTP ${res.status}`);
+    err.status = res.status;
+    err.body = body;
+    throw err;
+  }
   return res.json();
 }
 
@@ -422,8 +437,13 @@ async function resolveTunnelUrl() {
         setLibraryStatus('Backend starting, waiting for tunnel...');
       }
     } catch (err) {
-      // Tunnel returns 404 until ready; keep retrying.
-      if (i === 0) setLibraryStatus('Waiting for backend tunnel...');
+      // Tunnel returns 404 with status body until ready; keep retrying.
+      const data = err && err.body;
+      if (data && data.status && data.status !== 'running') {
+        setLibraryStatus('Backend starting, waiting for tunnel...');
+      } else if (i === 0) {
+        setLibraryStatus('Waiting for backend tunnel...');
+      }
     }
     await sleep(1000);
   }

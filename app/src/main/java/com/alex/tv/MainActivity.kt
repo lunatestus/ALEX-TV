@@ -234,12 +234,12 @@ class MainActivity : AppCompatActivity() {
             instanceFollowRedirects = true
             requestMethod = "GET"
         }
-        return try {
+        try {
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val body = stream.bufferedReader().use { it.readText() }
-            if (code !in 200..299) throw IOException("HTTP $code")
-            body
+            if (code !in 200..299) throw IOException("HTTP $code $body")
+            return body
         } finally {
             conn.disconnect()
         }
